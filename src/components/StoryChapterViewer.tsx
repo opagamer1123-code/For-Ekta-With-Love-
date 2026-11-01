@@ -303,7 +303,7 @@ export const StoryChapterViewer: React.FC<StoryChapterViewerProps> = ({
                 onClick={onExploreOtherSections}
                 className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-[#A64D68] to-[#8E3E56] text-white text-base font-medium shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
               >
-                <span>Continue to Notes to Share ♡</span>
+                <span>Continue to Moments in Motion ♡</span>
                 <Heart className="w-4 h-4 fill-white" />
               </button>
             </div>

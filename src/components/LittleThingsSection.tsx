@@ -517,9 +517,9 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
           <button
             onClick={onPrevPage}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 min-h-[46px] sm:min-h-[48px] px-6 py-3 rounded-full border border-[#A64D68]/40 hover:border-[#A64D68] text-[#A64D68] hover:bg-[#F8DCE5]/30 text-sm font-medium transition-all active:scale-98 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 cursor-pointer"
-            aria-label="Return to Notes to Share page"
+            aria-label="Return to Moments in Motion page"
           >
-            <span>← Previous: Notes to Share</span>
+            <span>← Previous: Moments in Motion ♡</span>
           </button>
         ) : (
           <div className="hidden sm:block w-28" aria-hidden="true" />

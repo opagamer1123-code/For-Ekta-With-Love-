@@ -88,7 +88,7 @@ export const proposalConfig: ProposalConfig = {
     ],
     closing: "Forever and always,",
     signature: "Yours ♡",
-    continueButton: "Next: Notes to Share ♡",
+    continueButton: "Next: Moments in Motion ♡",
   },
   littleThings: {
     title: "Little Things I Admire",

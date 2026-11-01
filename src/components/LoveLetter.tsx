@@ -80,7 +80,7 @@ export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevS
         initialChapterIndex={0}
         sectionTitle="Page"
         badgeLabel="Personal Letter"
-        completeButtonText="Next: Notes to Share ♡"
+        completeButtonText="Next: Moments in Motion ♡"
         onComplete={onContinueStory}
         onReturnHome={onPrevSection}
       />

@@ -212,7 +212,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               <div>
                 <span className="text-xs sm:text-sm font-medium text-[#5A3545] flex items-center gap-1.5">
                   <Eye className="w-3.5 h-3.5 text-[#A64D68]" />
-                  Reveal note to Ekta (Public "Notes to Share")
+                  Reveal note to Ekta (Public "Moments in Motion")
                 </span>
                 <p className="text-[11px] text-[#9A817B] mt-0.5">
                   If unchecked, note remains strictly in your Private Diary.

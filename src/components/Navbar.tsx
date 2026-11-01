@@ -82,7 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => handleNavClick('notes-section', 'shared')}
             className={navItemClass(isItemActive('notes-shared'))}
           >
-            Notes to Share
+            Moments in Motion ♡
           </button>
 
           <button
@@ -156,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 isItemActive('notes-shared') ? 'bg-[#F8DCE5]/70 text-[#A64D68]' : 'hover:bg-[#F8DCE5]/30'
               }`}
             >
-              Notes to Share
+              Moments in Motion ♡
             </button>
             <button
               onClick={() => handleNavClick('little-things-section')}

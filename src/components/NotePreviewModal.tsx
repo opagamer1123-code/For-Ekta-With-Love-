@@ -76,7 +76,7 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
             {note.isShared ? (
               <span className="text-[#A64D68] font-medium flex items-center gap-1">
                 <CheckCircle2 className="w-4 h-4 text-[#A64D68]" />
-                Currently visible in "Notes to Share"
+                Currently visible in "Moments in Motion"
               </span>
             ) : (
               <span className="text-[#9A817B]">

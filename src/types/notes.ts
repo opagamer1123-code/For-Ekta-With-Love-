@@ -6,7 +6,7 @@ export interface DiaryNote {
   content: string;
   date?: string;
   isPinned: boolean;
-  isShared: boolean; // true = shared with Ekta in "Notes to Share", false = strictly Private Diary
+  isShared: boolean; // true = shared with Ekta in "Moments in Motion", false = strictly Private Diary
   createdAt: number;
   updatedAt: number;
   category: NoteCategory;

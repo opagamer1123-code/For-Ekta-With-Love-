@@ -3,6 +3,7 @@ import { Heart, Sparkles, Feather, RotateCcw } from 'lucide-react';
 import { EnvelopeIllustration, EnvelopeAnimationPhase } from './EnvelopeIllustration';
 import { PageTurnBook } from './PageTurnBook';
 import { authoritativeStoryChapters, homeStoryOpening } from '../config/ektaStoryConfig';
+import { romanticAudio } from '../services/soundtrack';
 
 interface OpeningEnvelopeProps {
   isOpen: boolean;
@@ -24,6 +25,9 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
 
     setIsAnimating(true);
     onOpen();
+
+    // Start playing Dil Se Dil on opening the envelope
+    romanticAudio.play().catch(() => {});
 
     // Step 1: Heart seal pulses / glows (0 to 300ms)
     setPhase('pulse-seal');

@@ -16,6 +16,7 @@ import { PrivacyNoticeModal } from './components/PrivacyNoticeModal';
 import { OwnerDashboardModal } from './components/OwnerDashboardModal';
 import { DiaryNote } from './types/notes';
 import { loadNotesFromStorage, saveNotesToStorage } from './services/notesStorage';
+import { romanticAudio } from './services/soundtrack';
 import { Heart, ChevronRight, BookOpen, Feather, Sparkles, Smile, Lock } from 'lucide-react';
 
 export type AppPage = 'home' | 'letter' | 'notes' | 'little-things' | 'questions';
@@ -23,7 +24,7 @@ export type AppPage = 'home' | 'letter' | 'notes' | 'little-things' | 'questions
 const pageMetadata: Record<AppPage, { index: number; title: string; subtitle: string }> = {
   'home': { index: 1, title: 'Home', subtitle: 'The Beginning of His Story' },
   'letter': { index: 2, title: 'My Letter', subtitle: 'It Has Always Been Her' },
-  'notes': { index: 3, title: 'Notes to Share', subtitle: 'Little Moments, Just for You' },
+  'notes': { index: 3, title: 'Moments in Motion ♡', subtitle: 'Little videos, lovely memories, and moments worth keeping.' },
   'little-things': { index: 4, title: 'Little Things', subtitle: 'Memories I Admire' },
   'questions': { index: 5, title: 'Questions', subtitle: 'Her Answer' },
 };
@@ -48,13 +49,15 @@ export default function App() {
   const [isOwnerDashboardOpen, setIsOwnerDashboardOpen] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
 
-  // Initialize notes from browser localStorage
+  // Initialize notes from browser localStorage and setup background audio listener
   useEffect(() => {
     const { notes: loadedNotes, error } = loadNotesFromStorage();
     setNotes(loadedNotes);
     if (error) {
       setStorageError(error);
     }
+    // Arm first user gesture audio start
+    romanticAudio.initAutoPlayOnGesture();
   }, []);
 
   // Listen for browser back / forward hash changes
@@ -213,7 +216,7 @@ export default function App() {
           />
         )}
 
-        {/* DEDICATED PAGE 3: Notes to Share (& Private Diary in Owner Mode) */}
+        {/* DEDICATED PAGE 3: Moments in Motion ♡ */}
         {currentPage === 'notes' && (
           <NotesSection
             notes={notes}
