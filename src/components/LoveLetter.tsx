@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Feather, Volume2, VolumeX } from 'lucide-react';
+import { Feather, Volume2, VolumeX, Printer, Scroll } from 'lucide-react';
 import { letterStoryPages } from '../config/ektaStoryConfig';
 import { PageTurnBook, BookChapterData } from './PageTurnBook';
 import { paperFlipAudio } from '../services/paperSound';
+import { PrintableLoveLetterModal } from './PrintableLoveLetterModal';
 
 interface LoveLetterProps {
   onContinueStory: () => void;
@@ -11,6 +12,7 @@ interface LoveLetterProps {
 
 export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevSection }) => {
   const [isSoundEnabled, setIsSoundEnabled] = useState(() => !paperFlipAudio.getIsMuted());
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   useEffect(() => {
     return paperFlipAudio.subscribe((muted) => {
@@ -34,7 +36,8 @@ export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevS
   return (
     <section
       id="letter-section"
-      className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto relative z-20 scroll-mt-20"
+      className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto relative z-20 scroll-mt-20 will-change-transform"
+      style={{ willChange: 'transform', transform: 'translateZ(0)' }}
       aria-label="My Letter for Ekta"
     >
       {/* Decorative floral ribbon header */}
@@ -55,8 +58,8 @@ export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevS
           Turn through the pages at your own pace with each authentic flip.
         </p>
 
-        {/* Sensory immersion audio badge */}
-        <div className="mt-3.5 flex items-center justify-center">
+        {/* Sensory immersion audio badge & Printable PDF Button */}
+        <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           <button
             onClick={toggleSound}
             type="button"
@@ -69,7 +72,18 @@ export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevS
             ) : (
               <VolumeX className="w-3.5 h-3.5" aria-hidden="true" />
             )}
-            <span>{isSoundEnabled ? 'Paper Flip Sound: On' : 'Paper Flip Sound: Muted'}</span>
+            <span>{isSoundEnabled ? 'Paper Flip: On' : 'Paper Flip: Muted'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsPrintModalOpen(true)}
+            type="button"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#5A3545] bg-[#FFFDF8] hover:bg-[#FFF5F8] border border-[#C7A66A]/60 hover:border-[#C7A66A] shadow-2xs hover:shadow-xs transition-all hover:scale-102 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#A64D68]/40"
+            title="Open and print or save the complete letter as a vintage parchment PDF"
+            aria-label="Open printable PDF vintage parchment letter"
+          >
+            <Printer className="w-3.5 h-3.5 text-[#C7A66A]" aria-hidden="true" />
+            <span>Printable Letter (PDF)</span>
           </button>
         </div>
       </div>
@@ -85,12 +99,27 @@ export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevS
         onReturnHome={onPrevSection}
       />
 
-      {/* Bottom Sub-CTA */}
-      <div className="mt-8 text-center">
+      {/* Bottom Sub-CTA & Secondary Print Trigger */}
+      <div className="mt-8 flex flex-col items-center justify-center gap-3 text-center">
+        <button
+          type="button"
+          onClick={() => setIsPrintModalOpen(true)}
+          className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs sm:text-sm font-serif font-medium text-[#5A3545] bg-[#FFFDF8] hover:bg-[#FFF5F8] border border-[#C7A66A]/80 shadow-2xs hover:shadow-sm transition-all hover:scale-102 active:scale-95 cursor-pointer"
+        >
+          <Scroll className="w-4 h-4 text-[#C7A66A]" />
+          <span>Save &amp; Print Letter as Keepsake PDF ♡</span>
+        </button>
+
         <p className="text-xs text-[#9A817B] font-letter italic">
           A personal confession preserved across 5 pages · Take your time reading each one
         </p>
       </div>
+
+      {/* Printable Vintage Parchment Love Letter Modal */}
+      <PrintableLoveLetterModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+      />
     </section>
   );
 };

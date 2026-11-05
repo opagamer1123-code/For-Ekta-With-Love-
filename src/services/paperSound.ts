@@ -313,6 +313,232 @@ class PaperFlipAudioEngine {
       console.warn('Could not play paper turn sound:', e);
     }
   }
+
+  /**
+   * Delicate procedural wax seal cracking sound
+   * Simulates the brittle tactile snap of cold wax parting under gentle pressure
+   */
+  public playWaxCrack() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const startTime = ctx.currentTime;
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(this.volume * 0.85, startTime);
+      masterGain.connect(ctx.destination);
+      this.activeNodes.push({ disconnect: () => masterGain.disconnect() });
+
+      // Component 1: Brittle snap impulse
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1450, startTime);
+      osc.frequency.exponentialRampToValueAtTime(180, startTime + 0.045);
+
+      const oscGain = ctx.createGain();
+      oscGain.gain.setValueAtTime(0.0001, startTime);
+      oscGain.gain.linearRampToValueAtTime(0.22, startTime + 0.003);
+      oscGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.045);
+
+      osc.connect(oscGain);
+      oscGain.connect(masterGain);
+      osc.start(startTime);
+      osc.stop(startTime + 0.05);
+
+      // Component 2: Micro crackle noise burst
+      const noiseDur = 0.07;
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * noiseDur), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      }
+      const noiseSrc = ctx.createBufferSource();
+      noiseSrc.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(3200, startTime);
+      filter.Q.setValueAtTime(3.0, startTime);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.0001, startTime);
+      noiseGain.gain.linearRampToValueAtTime(0.18, startTime + 0.004);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, startTime + noiseDur);
+
+      noiseSrc.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(masterGain);
+      noiseSrc.start(startTime);
+      noiseSrc.stop(startTime + noiseDur);
+
+      // Component 3: Secondary micro-fragment fracture echo
+      const echoTime = startTime + 0.038;
+      const echoOsc = ctx.createOscillator();
+      echoOsc.type = 'sine';
+      echoOsc.frequency.setValueAtTime(980, echoTime);
+      echoOsc.frequency.exponentialRampToValueAtTime(120, echoTime + 0.035);
+
+      const echoGain = ctx.createGain();
+      echoGain.gain.setValueAtTime(0.0001, echoTime);
+      echoGain.gain.linearRampToValueAtTime(0.09, echoTime + 0.004);
+      echoGain.gain.exponentialRampToValueAtTime(0.0001, echoTime + 0.035);
+
+      echoOsc.connect(echoGain);
+      echoGain.connect(masterGain);
+      echoOsc.start(echoTime);
+      echoOsc.stop(echoTime + 0.04);
+    } catch (e) {
+      console.warn('Could not play wax crack sound:', e);
+    }
+  }
+
+  /**
+   * Realistic envelope flap opening sound
+   * Simulates the natural creasing and gentle air movement as a triangular paper flap folds backward
+   */
+  public playFlapOpen() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const startTime = ctx.currentTime;
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(this.volume * 0.75, startTime);
+      masterGain.connect(ctx.destination);
+      this.activeNodes.push({ disconnect: () => masterGain.disconnect() });
+
+      const duration = 0.65;
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let prev = 0;
+      for (let i = 0; i < data.length; i++) {
+        const white = Math.random() * 2 - 1;
+        prev = 0.96 * prev + white * 0.04;
+        data[i] = prev;
+      }
+
+      const noiseSrc = ctx.createBufferSource();
+      noiseSrc.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(750, startTime);
+      filter.frequency.exponentialRampToValueAtTime(320, startTime + duration);
+      filter.Q.setValueAtTime(1.8, startTime);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.linearRampToValueAtTime(0.19, startTime + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.06, startTime + 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+      noiseSrc.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      noiseSrc.start(startTime);
+      noiseSrc.stop(startTime + duration);
+    } catch (e) {
+      console.warn('Could not play flap open sound:', e);
+    }
+  }
+
+  /**
+   * Delicate paper sliding sound
+   * Simulates thick cotton parchment smoothly sliding upwards out of an envelope pocket
+   */
+  public playLetterSlide() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const startTime = ctx.currentTime;
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(this.volume * 0.72, startTime);
+      masterGain.connect(ctx.destination);
+      this.activeNodes.push({ disconnect: () => masterGain.disconnect() });
+
+      const duration = 1.05;
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let b0 = 0, b1 = 0;
+      for (let i = 0; i < data.length; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.98 * b0 + white * 0.02;
+        b1 = 0.95 * b1 + b0 * 0.05;
+        // Subtle rhythmic modulation simulating paper texture passes
+        const mod = 0.85 + 0.15 * Math.sin((i / ctx.sampleRate) * 12 * Math.PI);
+        data[i] = b1 * mod * 1.8;
+      }
+
+      const noiseSrc = ctx.createBufferSource();
+      noiseSrc.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(620, startTime);
+      filter.frequency.linearRampToValueAtTime(840, startTime + 0.45);
+      filter.frequency.exponentialRampToValueAtTime(450, startTime + duration);
+      filter.Q.setValueAtTime(2.0, startTime);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.linearRampToValueAtTime(0.18, startTime + 0.18);
+      // Gentle brief deceleration dip at ~0.45s (synchronized with pause)
+      gain.gain.setValueAtTime(0.09, startTime + 0.45);
+      gain.gain.linearRampToValueAtTime(0.17, startTime + 0.65);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+      noiseSrc.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      noiseSrc.start(startTime);
+      noiseSrc.stop(startTime + duration);
+    } catch (e) {
+      console.warn('Could not play letter slide sound:', e);
+    }
+  }
+
+  /**
+   * Soft parchment unfolding and landing sound
+   */
+  public playLetterUnfold() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const startTime = ctx.currentTime;
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(this.volume * 0.65, startTime);
+      masterGain.connect(ctx.destination);
+      this.activeNodes.push({ disconnect: () => masterGain.disconnect() });
+
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(140, startTime);
+      osc.frequency.exponentialRampToValueAtTime(48, startTime + 0.22);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(280, startTime);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.linearRampToValueAtTime(0.14, startTime + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.22);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      osc.start(startTime);
+      osc.stop(startTime + 0.25);
+    } catch (e) {
+      console.warn('Could not play letter unfold sound:', e);
+    }
+  }
 }
 
 export const paperFlipAudio = new PaperFlipAudioEngine();

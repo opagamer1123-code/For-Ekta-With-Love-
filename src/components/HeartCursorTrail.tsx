@@ -57,6 +57,11 @@ export const HeartCursorTrail: React.FC = () => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (mediaQuery.matches) return;
 
+    // Only run cursor trail on devices with fine pointer (mouse) and hover capability (PC/desktop/laptop)
+    // On phones, touchscreens, and TV remotes, skip canvas animation to eliminate touch-scroll overhead and save GPU/CPU
+    const isFinePointer = window.matchMedia('(pointer: fine) and (hover: hover)').matches;
+    if (!isFinePointer) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 

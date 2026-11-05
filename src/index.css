@@ -37,6 +37,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Accessible high-contrast focus rings for TV remotes and keyboard navigation */
+  :focus-visible {
+    outline: 3px solid #A64D68;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 4px rgba(248, 220, 229, 0.7);
   }
 }
 
@@ -201,6 +210,30 @@
   animation: heartPop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
 }
 
+/* Instagram-style double tap heart bloom */
+@keyframes instagramHeartBloom {
+  0% {
+    transform: scale(0) rotate(-12deg);
+    opacity: 0;
+  }
+  35% {
+    transform: scale(1.35) rotate(0deg);
+    opacity: 1;
+  }
+  65% {
+    transform: scale(1.1) rotate(4deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.5) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.animate-instagram-heart-bloom {
+  animation: instagramHeartBloom 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
 /* Custom scrollbar for notes and diary */
 ::-webkit-scrollbar {
   width: 6px;
@@ -236,3 +269,69 @@
     transform: none !important;
   }
 }
+
+/* Printable Vintage Parchment Love Letter PDF Styles */
+@media print {
+  html, body {
+    background-color: #FFFDF8 !important;
+    background-image: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #2B1D24 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide entire application navigation, audio controls, and headers during printing */
+  nav,
+  header:not(#printable-love-letter-backdrop header),
+  footer:not(#printable-love-letter-backdrop footer),
+  .no-print,
+  button,
+  .print-hide {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Ensure the printable letter backdrop is non-blocking and visible */
+  #printable-love-letter-backdrop {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    z-index: 999999 !important;
+  }
+
+  #printable-love-letter-document {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .print-page-sheet {
+    page-break-after: always !important;
+    break-after: page !important;
+    min-height: 96vh !important;
+    box-shadow: none !important;
+    margin-bottom: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-page-sheet:last-child {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 1.2cm;
+  }
+}
+

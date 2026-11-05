@@ -12,6 +12,7 @@ import { LoveLetter } from './components/LoveLetter';
 import { NotesSection } from './components/NotesSection';
 import { LittleThingsSection } from './components/LittleThingsSection';
 import { ProposalSection } from './components/ProposalSection';
+import { NoOneElseSection } from './components/NoOneElseSection';
 import { PrivacyNoticeModal } from './components/PrivacyNoticeModal';
 import { OwnerDashboardModal } from './components/OwnerDashboardModal';
 import { DiaryNote } from './types/notes';
@@ -19,14 +20,21 @@ import { loadNotesFromStorage, saveNotesToStorage } from './services/notesStorag
 import { romanticAudio } from './services/soundtrack';
 import { Heart, ChevronRight, BookOpen, Feather, Sparkles, Smile, Lock } from 'lucide-react';
 
-export type AppPage = 'home' | 'letter' | 'notes' | 'little-things' | 'questions';
+export type AppPage =
+  | 'home'
+  | 'letter'
+  | 'notes'
+  | 'little-things'
+  | 'no-one-else'
+  | 'questions';
 
 const pageMetadata: Record<AppPage, { index: number; title: string; subtitle: string }> = {
   'home': { index: 1, title: 'Home', subtitle: 'The Beginning of His Story' },
   'letter': { index: 2, title: 'My Letter', subtitle: 'It Has Always Been Her' },
   'notes': { index: 3, title: 'Moments in Motion ♡', subtitle: 'Little videos, lovely memories, and moments worth keeping.' },
   'little-things': { index: 4, title: 'Little Things', subtitle: 'Memories I Admire' },
-  'questions': { index: 5, title: 'Questions', subtitle: 'Her Answer' },
+  'no-one-else': { index: 5, title: "There's No One Else in My Heart", subtitle: 'Some feelings are too deep for words...' },
+  'questions': { index: 6, title: 'Questions', subtitle: 'Her Answer' },
 };
 
 export default function App() {
@@ -37,6 +45,7 @@ export default function App() {
       if (hash === 'letter' || hash === 'letter-section') return 'letter';
       if (hash === 'notes' || hash === 'notes-section' || hash === 'notes-shared' || hash === 'notes-private') return 'notes';
       if (hash === 'little-things' || hash === 'little-things-section') return 'little-things';
+      if (hash === 'no-one-else' || hash === 'no-one-else-section' || hash === 'theres-no-one-else') return 'no-one-else';
       if (hash === 'questions' || hash === 'proposal' || hash === 'proposal-section') return 'questions';
     }
     return 'home';
@@ -56,8 +65,6 @@ export default function App() {
     if (error) {
       setStorageError(error);
     }
-    // Arm first user gesture audio start
-    romanticAudio.initAutoPlayOnGesture();
   }, []);
 
   // Listen for browser back / forward hash changes
@@ -72,6 +79,7 @@ export default function App() {
         setCurrentPage('notes');
         setNotesTab('private');
       } else if (hash === 'little-things' || hash === 'little-things-section') setCurrentPage('little-things');
+      else if (hash === 'no-one-else' || hash === 'no-one-else-section' || hash === 'theres-no-one-else') setCurrentPage('no-one-else');
       else if (hash === 'questions' || hash === 'proposal' || hash === 'proposal-section') setCurrentPage('questions');
       else if (hash === 'home' || hash === 'envelope-section' || hash === '') setCurrentPage('home');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -79,6 +87,26 @@ export default function App() {
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Global Keyboard Navigation for PC and TV remote number keys (1 to 6)
+  useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+        return;
+      }
+
+      if (e.key === '1') navigateToPage('home');
+      else if (e.key === '2') navigateToPage('letter');
+      else if (e.key === '3') navigateToPage('notes', 'shared');
+      else if (e.key === '4') navigateToPage('little-things');
+      else if (e.key === '5') navigateToPage('no-one-else');
+      else if (e.key === '6') navigateToPage('questions');
+    };
+
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
   }, []);
 
   // Update notes in state and persist to localStorage
@@ -100,7 +128,8 @@ export default function App() {
     else if (target === 'letter-section' || target === 'letter') resolvedPage = 'letter';
     else if (target === 'notes-section' || target === 'notes' || target === 'notes-shared' || target === 'notes-private') resolvedPage = 'notes';
     else if (target === 'little-things-section' || target === 'little-things') resolvedPage = 'little-things';
-    else if (target === 'proposal-section' || target === 'questions') resolvedPage = 'questions';
+    else if (target === 'no-one-else-section' || target === 'no-one-else' || target === 'theres-no-one-else') resolvedPage = 'no-one-else';
+    else if (target === 'proposal-section' || target === 'questions' || target === 'proposal') resolvedPage = 'questions';
 
     setCurrentPage(resolvedPage);
 
@@ -133,6 +162,8 @@ export default function App() {
         : 'notes-shared'
       : currentPage === 'little-things'
       ? 'little-things-section'
+      : currentPage === 'no-one-else'
+      ? 'no-one-else-section'
       : 'proposal-section';
 
   return (
@@ -163,7 +194,7 @@ export default function App() {
         className="bg-[#FFFDF9]/95 border-b border-[#F8DCE5]/80 py-2.5 px-4 sticky top-[72px] z-30 backdrop-blur-xs"
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2 overflow-x-auto no-scrollbar text-xs">
-          {(['home', 'letter', 'notes', 'little-things', 'questions'] as AppPage[]).map((pageKey, idx) => {
+          {(['home', 'letter', 'notes', 'little-things', 'no-one-else', 'questions'] as AppPage[]).map((pageKey, idx) => {
             const meta = pageMetadata[pageKey];
             const isCurrent = currentPage === pageKey;
 
@@ -183,12 +214,12 @@ export default function App() {
                       isCurrent ? 'bg-white/20 text-white' : 'bg-[#F8DCE5] text-[#A64D68]'
                     }`}
                   >
-                    {meta.index}
+                    {meta?.index}
                   </span>
-                  <span>{meta.title}</span>
+                  <span>{meta?.title}</span>
                 </button>
 
-                {idx < 4 && (
+                {idx < 5 && (
                   <ChevronRight className="w-3.5 h-3.5 text-[#A64D68]/30 shrink-0" aria-hidden="true" />
                 )}
               </React.Fragment>
@@ -198,7 +229,10 @@ export default function App() {
       </nav>
 
       {/* Main Experience Content: Render ONLY the Dedicated Page */}
-      <main className="flex-1 animate-in fade-in duration-300">
+      <main
+        className="flex-1 animate-in fade-in duration-300 will-change-transform"
+        style={{ willChange: 'transform', transform: 'translateZ(0)' }}
+      >
         {/* DEDICATED PAGE 1: Home */}
         {currentPage === 'home' && (
           <OpeningEnvelope
@@ -234,16 +268,24 @@ export default function App() {
         {currentPage === 'little-things' && (
           <LittleThingsSection
             isOwnerMode={isOwnerMode}
-            onContinueToQuestion={() => navigateToPage('questions')}
+            onContinueToQuestion={() => navigateToPage('no-one-else')}
             onPrevPage={() => navigateToPage('notes', 'shared')}
           />
         )}
 
-        {/* DEDICATED PAGE 5: Questions */}
+        {/* DEDICATED PAGE 5: There's No One Else in My Heart ♡ */}
+        {currentPage === 'no-one-else' && (
+          <NoOneElseSection
+            onNextPage={() => navigateToPage('questions')}
+            onPrevPage={() => navigateToPage('little-things')}
+          />
+        )}
+
+        {/* DEDICATED PAGE 6: Questions */}
         {currentPage === 'questions' && (
           <ProposalSection
             onBackToLetter={() => navigateToPage('letter')}
-            onPrevPage={() => navigateToPage('little-things')}
+            onPrevPage={() => navigateToPage('no-one-else')}
             onGoHome={() => navigateToPage('home')}
             onOpenOwnerDashboard={() => setIsOwnerDashboardOpen(true)}
           />
@@ -257,7 +299,7 @@ export default function App() {
             For Ekta, With All My Heart ♡
           </p>
           <div className="flex items-center justify-center gap-3 text-[11px] text-[#9A817B] flex-wrap">
-            <span>Page {pageMetadata[currentPage].index} of 5 · {pageMetadata[currentPage].title}</span>
+            <span>Page {pageMetadata[currentPage].index} of 6 · {pageMetadata[currentPage].title}</span>
             <span aria-hidden="true">·</span>
             <button
               onClick={() => setIsPrivacyNoticeOpen(true)}

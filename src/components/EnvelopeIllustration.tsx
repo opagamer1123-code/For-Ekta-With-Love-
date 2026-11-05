@@ -3,11 +3,11 @@ import { Heart, Sparkles } from 'lucide-react';
 
 export type EnvelopeAnimationPhase =
   | 'closed'
-  | 'pulse-seal'
-  | 'lift-seal'
-  | 'open-flap'
-  | 'rise-letter'
-  | 'unfold'
+  | 'seal-press'
+  | 'seal-break'
+  | 'flap-opening'
+  | 'letter-sliding'
+  | 'letter-reveal'
   | 'revealed';
 
 interface EnvelopeIllustrationProps {
@@ -21,47 +21,46 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
   onSealClick,
   disabled = false,
 }) => {
-  const isFlapOpen =
-    phase === 'open-flap' ||
-    phase === 'rise-letter' ||
-    phase === 'unfold' ||
+  const isFlapOpened =
+    phase === 'flap-opening' ||
+    phase === 'letter-sliding' ||
+    phase === 'letter-reveal' ||
     phase === 'revealed';
 
-  const isLetterRising =
-    phase === 'rise-letter' ||
-    phase === 'unfold' ||
-    phase === 'revealed';
+  const isLetterSliding = phase === 'letter-sliding';
+  const isLetterRevealed = phase === 'letter-reveal' || phase === 'revealed';
 
-  const isSealPulsing = phase === 'pulse-seal';
-  const isSealLiftingOrGone =
-    phase === 'lift-seal' ||
-    phase === 'open-flap' ||
-    phase === 'rise-letter' ||
-    phase === 'unfold' ||
+  const isSealPressed = phase === 'seal-press';
+  const isSealBreaking = phase === 'seal-break';
+  const isSealGone =
+    phase === 'flap-opening' ||
+    phase === 'letter-sliding' ||
+    phase === 'letter-reveal' ||
     phase === 'revealed';
 
   return (
     <div
-      className="relative w-full max-w-[340px] sm:max-w-[400px] md:max-w-[420px] h-[230px] sm:h-[260px] md:h-[270px] mx-auto select-none my-3"
-      aria-label="Romantic sealed envelope for Ekta"
+      className="relative w-full max-w-[340px] sm:max-w-[400px] md:max-w-[430px] h-[230px] sm:h-[260px] md:h-[275px] mx-auto select-none my-6 sm:my-8"
+      style={{ perspective: '1400px' }}
+      aria-label="Realistic 3D physical envelope for Ekta"
     >
-      {/* 1. Subtle warm ambient glow behind the envelope */}
+      {/* 1. Ambient Warm Desk Reflection Glow underneath */}
       <div
-        className="absolute inset-0 bg-gradient-to-tr from-[#F8DCE5]/70 via-[#FFF0F4]/50 to-[#FFF8ED]/80 rounded-[30px] blur-2xl -z-10 transform scale-110 pointer-events-none"
+        className="absolute inset-0 bg-gradient-to-tr from-[#F8DCE5]/60 via-[#FFF0F4]/40 to-[#FFF8ED]/70 rounded-[32px] blur-2xl -z-10 transform scale-110 pointer-events-none"
         aria-hidden="true"
       />
 
-      {/* Floating Petals dedicated to envelope opening burst */}
-      {(phase === 'open-flap' || phase === 'rise-letter' || phase === 'unfold') && (
+      {/* Floating Rose Petals bursting as the envelope flap opens and letter emerges */}
+      {(phase === 'flap-opening' || phase === 'letter-sliding') && (
         <div className="absolute inset-0 pointer-events-none z-40 overflow-visible" aria-hidden="true">
-          {[...Array(6)].map((_, i) => (
+          {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className="absolute w-4 h-5 opacity-90 animate-[envelopePetalDrift_1.6s_ease-out_forwards]"
+              className="absolute w-4 h-5 opacity-90 animate-[cinematicPetalDrift_2.2s_cubic-bezier(0.2,0.8,0.2,1)_forwards]"
               style={{
-                left: `${20 + i * 12}%`,
-                top: `${40 - (i % 3) * 10}%`,
-                animationDelay: `${i * 120}ms`,
+                left: `${18 + i * 9}%`,
+                top: `${35 - (i % 4) * 8}%`,
+                animationDelay: `${i * 90}ms`,
               }}
             >
               <svg viewBox="0 0 24 32" fill="none" className="w-full h-full">
@@ -77,214 +76,542 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
         </div>
       )}
 
-      {/* 2. Main Envelope Body Container */}
-      <div className="relative w-full h-full bg-[#FFFBF5] rounded-2xl shadow-[0_16px_36px_rgba(90,53,69,0.14)] border border-[rgba(166,77,104,0.2)] overflow-hidden">
-        {/* Interior Pocket Shading & Subtle Lining */}
-        <div
-          className="absolute inset-0 bg-gradient-to-b from-[#F9E5EC]/50 via-[#FFF8ED]/40 to-[#FFFBF5]"
-          aria-hidden="true"
-        />
+      {/* 2. Main Physical Envelope Assembly (overflow-visible so 3D flap and sliding letter emerge naturally) */}
+      <div className="relative w-full h-full overflow-visible">
 
-        {/* Interior floral watermark detail on the back wall */}
-        <div
-          className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-20 opacity-20 text-[#A64D68] pointer-events-none"
-          aria-hidden="true"
-        >
-          <svg viewBox="0 0 100 60" fill="none" stroke="currentColor" strokeWidth="1">
-            <path d="M50 5 Q35 30 10 35 Q30 40 50 20 Q70 40 90 35 Q65 30 50 5 Z" fill="#F8DCE5" />
-            <circle cx="50" cy="18" r="4" fill="#A64D68" />
-          </svg>
+        {/* ========================================================================= */}
+        {/* LAYER A: BACK PLATE (z-index: 1) - Inside wall with authentic paper fiber */}
+        {/* ========================================================================= */}
+        <div className="absolute inset-0 bg-[#FFFDF9] rounded-2xl border border-[rgba(166,77,104,0.22)] shadow-[0_18px_40px_rgba(90,53,69,0.15)] z-[1] overflow-hidden">
+          {/* Subtle interior watermark on the back wall */}
+          <div
+            className="absolute inset-0 bg-gradient-to-b from-[#F9E5EC]/45 via-[#FFF8ED]/35 to-[#FFFDF9]"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute top-4 left-1/2 -translate-x-1/2 w-32 h-20 opacity-15 text-[#A64D68] pointer-events-none"
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 100 60" fill="none" stroke="currentColor" strokeWidth="1">
+              <path d="M50 5 Q35 30 10 35 Q30 40 50 20 Q70 40 90 35 Q65 30 50 5 Z" fill="#F8DCE5" />
+              <circle cx="50" cy="18" r="4" fill="#A64D68" />
+            </svg>
+          </div>
+          {/* Faint botanical bottom border inside back plate */}
+          <div className="absolute bottom-2 left-6 right-6 h-px bg-gradient-to-r from-transparent via-[#A64D68]/20 to-transparent" />
         </div>
 
-        {/* 3. Peeking Stationery Letter Sheet */}
+        {/* ========================================================================= */}
+        {/* LAYER B: THE 3D ROTATING TRIANGULAR TOP FLAP                              */}
+        {/* Rotates backwards around its fold line (top: 0) from 0deg to 180deg       */}
+        {/* Double-sided: outer face visible when closed, inner face visible when open */}
+        {/* ========================================================================= */}
         <div
-          className={`absolute left-4 sm:left-6 right-4 sm:right-6 h-[195px] sm:h-[215px] bg-[#FFFCF8] rounded-t-xl border border-[rgba(166,77,104,0.22)] shadow-[0_-4px_16px_rgba(90,53,69,0.08)] p-4 sm:p-5 transition-all duration-700 ease-out ${
-            isLetterRising
-              ? '-translate-y-28 sm:-translate-y-36 opacity-100 scale-[1.03] shadow-[0_-16px_32px_rgba(90,53,69,0.2)] z-30'
-              : 'top-8 opacity-90 translate-y-0 z-0'
+          className={`absolute top-0 left-0 right-0 h-[142px] origin-top transition-transform duration-1000 ease-[cubic-bezier(0.32,0.85,0.45,1.02)] ${
+            isFlapOpened
+              ? '[transform:rotateX(180deg)] z-[2]'
+              : '[transform:rotateX(0deg)] z-[25]'
           }`}
+          style={{
+            transformStyle: 'preserve-3d',
+            transformOrigin: '50% 0%',
+          }}
           aria-hidden="true"
         >
-          {/* Peeking Stationery Header */}
-          <div className="border-b border-dashed border-[rgba(166,77,104,0.24)] pb-2 flex items-center justify-between">
-            <span className="font-handwriting text-[#A64D68] text-lg sm:text-xl font-medium tracking-wide">
-              For Ekta ♡
-            </span>
-            <div className="w-5 h-5 rounded-full bg-[#F8DCE5]/70 flex items-center justify-center">
-              <Heart className="w-3 h-3 text-[#A64D68] fill-[#A64D68]" />
+          {/* FACE 1: OUTER FLAP (Facing front when closed) */}
+          <div
+            className="absolute inset-0 [backface-visibility:hidden]"
+            style={{ transform: 'rotateX(0deg)' }}
+          >
+            <svg
+              className="w-full h-full drop-shadow-[0_4px_10px_rgba(90,53,69,0.12)]"
+              viewBox="0 0 420 142"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="flapOuterGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#FFFDF9" />
+                  <stop offset="70%" stopColor="#FFF2F6" />
+                  <stop offset="100%" stopColor="#FAE6EE" />
+                </linearGradient>
+                <filter id="flapEdgeGlow" x="-5%" y="-5%" width="110%" height="110%">
+                  <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="#A64D68" floodOpacity="0.15" />
+                </filter>
+              </defs>
+              {/* Outer triangular fold */}
+              <path
+                d="M0,0 L210,140 L420,0 Z"
+                fill="url(#flapOuterGrad)"
+                stroke="rgba(166, 77, 104, 0.28)"
+                strokeWidth="1.2"
+                filter="url(#flapEdgeGlow)"
+              />
+              {/* Decorative inner stitched rule on flap */}
+              <path
+                d="M24,8 L210,130 L396,8"
+                stroke="rgba(166, 77, 104, 0.16)"
+                strokeWidth="1"
+                strokeDasharray="4 3"
+                fill="none"
+              />
+            </svg>
+          </div>
+
+          {/* FACE 2: INNER FLAP LINING (Becomes visible when folded 180° backwards) */}
+          <div
+            className="absolute inset-0 [backface-visibility:hidden]"
+            style={{ transform: 'rotateX(180deg)' }}
+          >
+            <svg
+              className="w-full h-full drop-shadow-[0_-4px_12px_rgba(90,53,69,0.08)]"
+              viewBox="0 0 420 142"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="flapInnerGrad" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#FFF8ED" />
+                  <stop offset="60%" stopColor="#FFF1F5" />
+                  <stop offset="100%" stopColor="#FAEDF2" />
+                </linearGradient>
+              </defs>
+              {/* Inverted triangular shape pointing upwards when viewed backwards */}
+              <path
+                d="M0,142 L210,2 L420,142 Z"
+                fill="url(#flapInnerGrad)"
+                stroke="rgba(166, 77, 104, 0.24)"
+                strokeWidth="1.2"
+              />
+              {/* Fold hinge crease shadow line */}
+              <line
+                x1="0"
+                y1="141"
+                x2="420"
+                y2="141"
+                stroke="rgba(90, 53, 69, 0.15)"
+                strokeWidth="2"
+              />
+              {/* Delicate inner floral accent */}
+              <path
+                d="M200,60 Q210,48 220,60 Q210,72 200,60 Z"
+                fill="#F8DCE5"
+                opacity="0.4"
+              />
+            </svg>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* LAYER C: THE LETTER SHEET (z-index: 6)                                    */}
+        {/* Nested inside the envelope pocket behind front folds (z: 12)              */}
+        {/* Slides up in 2 stages: emerges 40% with brief pause, then fully emerges  */}
+        {/* ========================================================================= */}
+        <div
+          className={`absolute left-4 sm:left-6 right-4 sm:right-6 h-[225px] sm:h-[245px] md:h-[260px] bg-[#FFFDF8] rounded-t-xl border border-[rgba(166,77,104,0.24)] p-4 sm:p-5 z-[6] select-none transition-all duration-700 ease-out ${
+            isLetterRevealed
+              ? '-translate-y-[210px] sm:-translate-y-[240px] md:-translate-y-[260px] scale-[1.04] shadow-[0_20px_45px_rgba(90,53,69,0.22)] opacity-100 z-[28]'
+              : isLetterSliding
+              ? 'animate-[letterPhysicalSlide_1.2s_cubic-bezier(0.25,0.9,0.3,1)_forwards] shadow-[0_12px_28px_rgba(90,53,69,0.18)] z-[28]'
+              : 'top-6 translate-y-0 opacity-95 shadow-[0_-2px_10px_rgba(90,53,69,0.06)]'
+          }`}
+          style={{
+            transformStyle: 'preserve-3d',
+          }}
+          aria-hidden="true"
+        >
+          {/* Authentic vintage ruled paper background & edge depth */}
+          <div className="absolute inset-0 rounded-t-xl bg-gradient-to-b from-[#FFFDF8] to-[#FFF9F2] opacity-90 pointer-events-none" />
+
+          {/* Letter Stationery Header */}
+          <div className="relative border-b border-dashed border-[rgba(166,77,104,0.25)] pb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#A64D68]/40" />
+              <span className="font-handwriting text-[#A64D68] text-xl sm:text-2xl font-semibold tracking-wide">
+                For Ekta ♡
+              </span>
+            </div>
+            <div className="w-6 h-6 rounded-full bg-[#F8DCE5]/80 flex items-center justify-center border border-[#E2A9B8]/60 shadow-2xs">
+              <Heart className="w-3.5 h-3.5 text-[#A64D68] fill-[#A64D68]" />
             </div>
           </div>
 
-          {/* Faint elegant ghost lines representing handwritten thoughts */}
-          <div className="mt-3 space-y-2.5 opacity-60">
-            <div className="h-1.5 bg-[#A64D68]/20 rounded-full w-4/5" />
-            <div className="h-1.5 bg-[#A64D68]/15 rounded-full w-full" />
-            <div className="h-1.5 bg-[#A64D68]/15 rounded-full w-5/6" />
-            <div className="h-1.5 bg-[#A64D68]/15 rounded-full w-3/4" />
+          {/* Letter preview content: handwritten lines peeking out */}
+          <div className="relative mt-3 space-y-2">
+            <p className="font-handwriting text-[#5A3545] text-sm sm:text-base leading-snug italic">
+              Hey Ekta, I have a little story to tell you...
+            </p>
+            <div className="space-y-2 opacity-50 pt-1">
+              <div className="h-1.5 bg-[#A64D68]/25 rounded-full w-4/5" />
+              <div className="h-1.5 bg-[#A64D68]/20 rounded-full w-full" />
+              <div className="h-1.5 bg-[#A64D68]/20 rounded-full w-3/4" />
+              <div className="h-1.5 bg-[#A64D68]/15 rounded-full w-5/6" />
+            </div>
           </div>
 
-          {/* Second sheet peeking tilted slightly behind inside the letter */}
-          <div className="absolute -bottom-2 right-3 w-16 h-8 bg-[#FFF8ED] rounded-t-sm border-t border-l border-[rgba(166,77,104,0.15)] opacity-50 rotate-3 pointer-events-none" />
+          {/* Subtle pressed flower seal watermark at bottom corner */}
+          <div className="absolute bottom-3 right-4 opacity-30 text-[#A64D68] pointer-events-none">
+            <svg viewBox="0 0 40 40" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1">
+              <circle cx="20" cy="20" r="10" strokeDasharray="2 2" />
+              <path d="M20 10 C15 15 15 25 20 30 C25 25 25 15 20 10 Z" fill="#F8DCE5" />
+            </svg>
+          </div>
         </div>
 
-        {/* 4. Envelope Front Folds (Crisp geometric styling) */}
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none z-10"
-          viewBox="0 0 420 270"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <defs>
-            <linearGradient id="envelopeLeftGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#FFF8ED" />
-              <stop offset="100%" stopColor="#FFF2F6" />
-            </linearGradient>
-            <linearGradient id="envelopeRightGrad" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FFF8ED" />
-              <stop offset="100%" stopColor="#FFF2F6" />
-            </linearGradient>
-            <linearGradient id="envelopeBottomGrad" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#FFFDF9" />
-              <stop offset="100%" stopColor="#FAF0F4" />
-            </linearGradient>
-            <filter id="envelopeFoldShadow" x="-10%" y="-10%" width="120%" height="120%">
-              <feDropShadow dx="0" dy="-2" stdDeviation="2.5" floodColor="#5A3545" floodOpacity="0.08" />
-            </filter>
-          </defs>
-
-          {/* Left triangular front fold */}
-          <path
-            d="M0,0 L210,140 L0,270 Z"
-            fill="url(#envelopeLeftGrad)"
-            stroke="rgba(166, 77, 104, 0.18)"
-            strokeWidth="1.2"
-          />
-
-          {/* Right triangular front fold */}
-          <path
-            d="M420,0 L210,140 L420,270 Z"
-            fill="url(#envelopeRightGrad)"
-            stroke="rgba(166, 77, 104, 0.18)"
-            strokeWidth="1.2"
-          />
-
-          {/* Bottom triangular fold overlapping the sides */}
-          <path
-            d="M0,270 L210,126 L420,270 Z"
-            fill="url(#envelopeBottomGrad)"
-            stroke="rgba(166, 77, 104, 0.22)"
-            strokeWidth="1.2"
-            filter="url(#envelopeFoldShadow)"
-          />
-
-          {/* Botanical corner flourish detail */}
-          <g stroke="#A64D68" strokeWidth="0.8" fill="none" opacity="0.4">
-            <path d="M12,258 Q24,253 30,243" />
-            <circle cx="30" cy="243" r="1.5" fill="#A64D68" />
-            <path d="M408,258 Q396,253 390,243" />
-            <circle cx="390" cy="243" r="1.5" fill="#A64D68" />
-          </g>
-        </svg>
-
-        {/* 5. Envelope Top Flap (Animated 180° flip via 3D perspective) */}
-        <div
-          className={`absolute top-0 left-0 right-0 h-[138px] origin-top transition-transform duration-600 ease-in-out z-20 ${
-            isFlapOpen
-              ? '[transform:rotateX(180deg)] z-0 pointer-events-none'
-              : '[transform:rotateX(0deg)]'
-          }`}
-          style={{ transformStyle: 'preserve-3d' }}
-          aria-hidden="true"
-        >
+        {/* ========================================================================= */}
+        {/* LAYER D: ENVELOPE FRONT POCKET (z-index: 12)                              */}
+        {/* Triangular folds that overlap the bottom and sides of the letter sheet    */}
+        {/* ========================================================================= */}
+        <div className="absolute inset-0 pointer-events-none z-[12]">
           <svg
-            className="w-full h-full drop-shadow-[0_4px_8px_rgba(90,53,69,0.08)]"
-            viewBox="0 0 420 138"
+            className="w-full h-full"
+            viewBox="0 0 420 270"
             preserveAspectRatio="none"
+            aria-hidden="true"
           >
             <defs>
-              <linearGradient id="envelopeTopFlapGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#FFFDF9" />
-                <stop offset="90%" stopColor="#FFF2F6" />
-                <stop offset="100%" stopColor="#FAE8EF" />
+              <linearGradient id="envLeftFoldGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#FFF8ED" />
+                <stop offset="85%" stopColor="#FFF0F5" />
+                <stop offset="100%" stopColor="#FDE6EE" />
               </linearGradient>
+              <linearGradient id="envRightFoldGrad" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFF8ED" />
+                <stop offset="85%" stopColor="#FFF0F5" />
+                <stop offset="100%" stopColor="#FDE6EE" />
+              </linearGradient>
+              <linearGradient id="envBottomFoldGrad" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor="#FFFDF9" />
+                <stop offset="70%" stopColor="#FAF1F5" />
+                <stop offset="100%" stopColor="#F6E2EB" />
+              </linearGradient>
+              <filter id="envFoldSoftShadow" x="-10%" y="-10%" width="120%" height="120%">
+                <feDropShadow dx="0" dy="-2" stdDeviation="3" floodColor="#5A3545" floodOpacity="0.09" />
+              </filter>
             </defs>
+
+            {/* Left triangular front fold */}
             <path
-              d="M0,0 L210,136 L420,0 Z"
-              fill="url(#envelopeTopFlapGrad)"
-              stroke="rgba(166, 77, 104, 0.22)"
+              d="M0,0 L210,140 L0,270 Z"
+              fill="url(#envLeftFoldGrad)"
+              stroke="rgba(166, 77, 104, 0.2)"
               strokeWidth="1.2"
             />
-            {/* Inner accent line on flap */}
+
+            {/* Right triangular front fold */}
             <path
-              d="M20,6 L210,126 L400,6"
-              stroke="rgba(166, 77, 104, 0.12)"
-              strokeWidth="1"
-              fill="none"
+              d="M420,0 L210,140 L420,270 Z"
+              fill="url(#envRightFoldGrad)"
+              stroke="rgba(166, 77, 104, 0.2)"
+              strokeWidth="1.2"
             />
+
+            {/* Bottom triangular fold (overlapping left and right) */}
+            <path
+              d="M0,270 L210,128 L420,270 Z"
+              fill="url(#envBottomFoldGrad)"
+              stroke="rgba(166, 77, 104, 0.24)"
+              strokeWidth="1.2"
+              filter="url(#envFoldSoftShadow)"
+            />
+
+            {/* Subtle botanical corner flourish lines */}
+            <g stroke="#A64D68" strokeWidth="0.8" fill="none" opacity="0.35">
+              <path d="M14,256 Q26,251 32,241" />
+              <circle cx="32" cy="241" r="1.5" fill="#A64D68" />
+              <path d="M406,256 Q394,251 388,241" />
+              <circle cx="388" cy="241" r="1.5" fill="#A64D68" />
+            </g>
           </svg>
         </div>
 
-        {/* 6. Dimensional Rose Pink Wax Seal */}
-        {phase !== 'revealed' && (
+        {/* ========================================================================= */}
+        {/* LAYER E: 3D REALISTIC BREAKING WAX SEAL (z-index: 30)                     */}
+        {/* Responds with subtle press (0.4s), then splits into 3 physical fragments   */}
+        {/* with hairline fissures, crumbs, and delicate sparkles                     */}
+        {/* ========================================================================= */}
+        {!isSealGone && (
           <div
-            className={`absolute left-1/2 top-[136px] -translate-x-1/2 -translate-y-1/2 z-30 transition-all duration-400 ease-out ${
-              isSealLiftingOrGone
-                ? '-translate-y-12 opacity-0 pointer-events-none scale-110'
-                : 'opacity-100'
+            className={`absolute left-1/2 top-[138px] -translate-x-1/2 -translate-y-1/2 z-[30] transition-opacity duration-400 ${
+              isSealBreaking ? 'pointer-events-none' : ''
             }`}
           >
             <button
               onClick={onSealClick}
               disabled={disabled || phase !== 'closed'}
               type="button"
-              className="group cursor-pointer focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-[#A64D68]/60 rounded-full disabled:cursor-not-allowed"
+              className={`group cursor-pointer focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-[#A64D68]/60 rounded-full disabled:cursor-not-allowed relative p-2 flex items-center justify-center transition-all duration-300 ${
+                isSealPressed
+                  ? 'scale-90 translate-y-1 brightness-95'
+                  : 'hover:scale-105 active:scale-95'
+              }`}
               aria-label="Tap wax seal to open letter for Ekta"
-              title="Tap heart seal to open"
+              title="Tap heart seal to open letter"
             >
-              {/* Outer Organic Wax Scalloped Ring */}
-              <div
-                className={`relative w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#7B2E44] via-[#A64D68] to-[#C96B85] shadow-[0_6px_16px_rgba(90,53,69,0.32)] flex items-center justify-center transition-all duration-300 ${
-                  isSealPulsing
-                    ? 'scale-125 shadow-[0_0_24px_rgba(166,77,104,0.7)] ring-4 ring-[#F8DCE5]'
-                    : 'group-hover:scale-110 group-hover:shadow-[0_8px_20px_rgba(90,53,69,0.4)]'
-                }`}
-              >
-                {/* Outer wax rim detail */}
-                <div className="absolute inset-1 rounded-full border border-[rgba(255,255,255,0.25)] pointer-events-none" />
+              {/* Outer gentle breathing pulse halo around seal when closed */}
+              {phase === 'closed' && (
+                <div
+                  className="absolute inset-1 rounded-full bg-[#A64D68]/20 animate-ping opacity-35 pointer-events-none"
+                  aria-hidden="true"
+                />
+              )}
 
-                {/* Inner debossed seal bed */}
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#8E3E56] shadow-inner flex items-center justify-center border border-[#6B283A]/40">
-                  <Heart
-                    className={`w-4 h-4 sm:w-5 sm:h-5 text-white/95 fill-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] transition-transform duration-200 ${
-                      isSealPulsing ? 'scale-125' : 'group-hover:scale-115'
-                    }`}
-                  />
+              {/* Sparkle burst during wax breaking */}
+              {isSealBreaking && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+                  <div className="absolute -top-3 -left-3 animate-[sparkleFlash_0.5s_ease-out_forwards]">
+                    <Sparkles className="w-5 h-5 text-amber-200" />
+                  </div>
+                  <div className="absolute -top-2 right-1 animate-[sparkleFlash_0.55s_ease-out_50ms_forwards]">
+                    <Sparkles className="w-4 h-4 text-pink-200" />
+                  </div>
+                  <div className="absolute -bottom-3 left-2 animate-[sparkleFlash_0.5s_ease-out_80ms_forwards]">
+                    <Sparkles className="w-4 h-4 text-amber-100" />
+                  </div>
                 </div>
+              )}
 
-                {/* Floating Micro Seal Hint */}
-                {phase === 'closed' && (
-                  <span className="absolute -bottom-6 font-handwriting text-xs text-[#A64D68] font-semibold whitespace-nowrap opacity-90 group-hover:opacity-100 transition-opacity drop-shadow-2xs">
-                    Tap seal ♡
-                  </span>
-                )}
-              </div>
+              {/* A. INTACT SEAL / SEAL-PRESS STATE */}
+              {!isSealBreaking ? (
+                <div
+                  className={`relative w-15 h-15 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-[#7B2E44] via-[#A64D68] to-[#C96B85] shadow-[0_6px_20px_rgba(90,53,69,0.38)] flex items-center justify-center transition-all duration-300 ${
+                    isSealPressed
+                      ? 'shadow-[0_2px_8px_rgba(90,53,69,0.5)] ring-2 ring-[#FFF0F4]/60'
+                      : 'group-hover:shadow-[0_10px_26px_rgba(90,53,69,0.48)]'
+                  }`}
+                >
+                  {/* Outer organic scalloped wax rim */}
+                  <div className="absolute inset-1 rounded-full border border-[rgba(255,255,255,0.28)] pointer-events-none" />
+
+                  {/* Debossed inner wax bed */}
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#8E3E56] shadow-inner flex items-center justify-center border border-[#6B283A]/40 relative overflow-hidden">
+                    <Heart
+                      className={`w-4 h-4 sm:w-5 sm:h-5 text-white/95 fill-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)] transition-transform duration-200 ${
+                        isSealPressed ? 'scale-90' : 'group-hover:scale-115'
+                      }`}
+                    />
+
+                    {/* Hairline Fracture Cracks appearing on Press */}
+                    {isSealPressed && (
+                      <svg
+                        className="absolute inset-0 w-full h-full pointer-events-none animate-[crackGlow_0.35s_ease-out_forwards]"
+                        viewBox="0 0 40 40"
+                      >
+                        <path
+                          d="M18,4 L20,16 L14,24 L10,36"
+                          stroke="rgba(255, 235, 245, 0.95)"
+                          strokeWidth="1.2"
+                          fill="none"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M20,16 L28,22 L34,26"
+                          stroke="rgba(255, 235, 245, 0.95)"
+                          strokeWidth="1.2"
+                          fill="none"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Subtle caption below seal when closed */}
+                  {phase === 'closed' && (
+                    <span className="absolute -bottom-6 font-handwriting text-xs sm:text-sm text-[#A64D68] font-semibold whitespace-nowrap opacity-90 group-hover:opacity-100 transition-opacity drop-shadow-2xs">
+                      Tap seal ♡
+                    </span>
+                  )}
+                </div>
+              ) : (
+                /* B. BREAKING SEAL: SPLITS INTO 3 NATURAL ORGANIC WAX FRAGMENTS */
+                <div className="relative w-15 h-15 sm:w-16 sm:h-16">
+                  {/* Fragment 1: Top-Left Shard (drifts up-left & rotates) */}
+                  <div className="absolute top-0 left-0 w-8 h-8 rounded-tl-full bg-gradient-to-br from-[#7B2E44] to-[#A64D68] shadow-md border-t border-l border-white/30 animate-[shardTopLeft_0.5s_cubic-bezier(0.2,0.8,0.2,1)_forwards] flex items-center justify-center overflow-hidden">
+                    <span className="text-[10px] text-white/80 font-bold ml-1 mt-1">♡</span>
+                  </div>
+
+                  {/* Fragment 2: Bottom-Left Shard (drifts down-left & rotates) */}
+                  <div className="absolute bottom-0 left-0 w-8 h-8 rounded-bl-full bg-gradient-to-tr from-[#6B283A] to-[#8E3E56] shadow-md border-b border-l border-white/25 animate-[shardBottomLeft_0.5s_cubic-bezier(0.2,0.8,0.2,1)_forwards]" />
+
+                  {/* Fragment 3: Right Shard (drifts right & rotates) */}
+                  <div className="absolute top-0 right-0 w-8 h-15 rounded-r-full bg-gradient-to-l from-[#C96B85] to-[#A64D68] shadow-md border-r border-white/30 animate-[shardRight_0.5s_cubic-bezier(0.2,0.8,0.2,1)_forwards] flex items-center justify-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                  </div>
+
+                  {/* Wax crumbs / flecks scattering */}
+                  <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full bg-[#8E3E56] animate-[crumbScatter1_0.45s_ease-out_forwards]" />
+                  <div className="absolute top-1/2 left-1/2 w-1 h-1 rounded-full bg-[#C96B85] animate-[crumbScatter2_0.45s_ease-out_forwards]" />
+                </div>
+              )}
             </button>
           </div>
         )}
       </div>
 
+      {/* Physics-accurate Keyframe Animations */}
       <style>{`
-        @keyframes envelopePetalDrift {
+        /* Cinematic Petal drift on flap opening */
+        @keyframes cinematicPetalDrift {
           0% {
-            transform: translate(0, 0) rotate(0deg) scale(0.8);
+            transform: translate(0, 0) rotate(0deg) scale(0.7);
             opacity: 0;
           }
-          20% {
+          15% {
             opacity: 1;
           }
           100% {
-            transform: translate(60px, -110px) rotate(220deg) scale(1.1);
+            transform: translate(75px, -130px) rotate(240deg) scale(1.15);
             opacity: 0;
+          }
+        }
+
+        /* Crack lines appearing on press */
+        @keyframes crackGlow {
+          0% {
+            opacity: 0;
+            stroke-dasharray: 40;
+            stroke-dashoffset: 40;
+          }
+          100% {
+            opacity: 1;
+            stroke-dashoffset: 0;
+          }
+        }
+
+        /* Wax Seal Fragment physics animations */
+        @keyframes shardTopLeft {
+          0% {
+            transform: translate(0, 0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-16px, -14px) rotate(-18deg) scale(0.94);
+            opacity: 0;
+          }
+        }
+
+        @keyframes shardBottomLeft {
+          0% {
+            transform: translate(0, 0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-14px, 16px) rotate(-12deg) scale(0.94);
+            opacity: 0;
+          }
+        }
+
+        @keyframes shardRight {
+          0% {
+            transform: translate(0, 0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(18px, 4px) rotate(20deg) scale(0.94);
+            opacity: 0;
+          }
+        }
+
+        @keyframes crumbScatter1 {
+          0% {
+            transform: translate(0, 0) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-24px, 22px) scale(0.5);
+            opacity: 0;
+          }
+        }
+
+        @keyframes crumbScatter2 {
+          0% {
+            transform: translate(0, 0) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(22px, -18px) scale(0.4);
+            opacity: 0;
+          }
+        }
+
+        @keyframes sparkleFlash {
+          0% {
+            transform: scale(0.2) rotate(0deg);
+            opacity: 0;
+          }
+          40% {
+            transform: scale(1.3) rotate(45deg);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(0.5) rotate(90deg);
+            opacity: 0;
+          }
+        }
+
+        /* Letter sliding in two distinct natural stages with brief anticipation pause */
+        @keyframes letterPhysicalSlide {
+          0% {
+            transform: translateY(0px) scale(0.98);
+          }
+          38% {
+            transform: translateY(-90px) scale(1);
+          }
+          58% {
+            transform: translateY(-94px) scale(1.005);
+          }
+          100% {
+            transform: translateY(-220px) scale(1.04);
+          }
+        }
+
+        @media (min-width: 640px) {
+          @keyframes letterPhysicalSlide {
+            0% {
+              transform: translateY(0px) scale(0.98);
+            }
+            38% {
+              transform: translateY(-105px) scale(1);
+            }
+            58% {
+              transform: translateY(-110px) scale(1.005);
+            }
+            100% {
+              transform: translateY(-245px) scale(1.04);
+            }
+          }
+        }
+
+        @media (min-width: 768px) {
+          @keyframes letterPhysicalSlide {
+            0% {
+              transform: translateY(0px) scale(0.98);
+            }
+            38% {
+              transform: translateY(-115px) scale(1);
+            }
+            58% {
+              transform: translateY(-120px) scale(1.005);
+            }
+            100% {
+              transform: translateY(-265px) scale(1.04);
+            }
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes letterPhysicalSlide {
+            0% {
+              transform: translateY(0px);
+            }
+            100% {
+              transform: translateY(-140px);
+            }
+          }
+          .animate-[cinematicPetalDrift_2.2s_cubic-bezier(0.2,0.8,0.2,1)_forwards],
+          .animate-[shardTopLeft_0.5s_cubic-bezier(0.2,0.8,0.2,1)_forwards],
+          .animate-[shardBottomLeft_0.5s_cubic-bezier(0.2,0.8,0.2,1)_forwards],
+          .animate-[shardRight_0.5s_cubic-bezier(0.2,0.8,0.2,1)_forwards] {
+            animation: none !important;
+            opacity: 0 !important;
           }
         }
       `}</style>

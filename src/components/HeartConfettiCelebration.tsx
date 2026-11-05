@@ -65,8 +65,11 @@ export const HeartConfettiCelebration: React.FC<HeartConfettiCelebrationProps> =
     };
     window.addEventListener('resize', handleResize);
 
-    // Generate 220+ high-fidelity particles for a lush explosion
-    const count = Math.min(260, Math.max(160, Math.floor(width / 5.5)));
+    // Scale particle count: 70-100 on mobile (<640px) for silky smooth 60fps, 180-260 on PC/TV
+    const isMobile = width < 640;
+    const count = isMobile
+      ? Math.min(95, Math.max(65, Math.floor(width / 5.2)))
+      : Math.min(260, Math.max(160, Math.floor(width / 5.5)));
     const pieces: ConfettiPiece[] = [];
 
     const centerX = width / 2;

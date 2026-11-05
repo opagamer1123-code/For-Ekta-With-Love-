@@ -24,7 +24,8 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
   return (
     <section
       id="notes-section"
-      className="py-6 sm:py-10 px-3 sm:px-6 lg:px-8 max-w-5xl mx-auto relative z-20 animate-in fade-in duration-300"
+      className="min-h-[calc(100vh-140px)] flex flex-col justify-center items-center py-6 sm:py-10 px-3 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full relative z-20 animate-in fade-in duration-300 will-change-transform"
+      style={{ willChange: 'transform', transform: 'translateZ(0)' }}
       aria-label="Chapter 3: Moments in Motion ♡ - Video Memories"
     >
       {/* Pure Reels Only Discovery Feed */}
@@ -45,7 +46,7 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
         )}
 
         <div className="text-xs text-[#9A817B] font-letter italic">
-          Dedicated Page 3 of 5 · Moments in Motion ♡
+          Dedicated Page 3 of 6 · Moments in Motion ♡
         </div>
 
         {onNextPage && (

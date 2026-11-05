@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Sparkles, BookOpen, Heart, ArrowRight, Volume2, VolumeX } from 'lucide-react';
 import { CurvedPaperSheet } from './CurvedPaperSheet';
 import { paperFlipAudio } from '../services/paperSound';
+import { romanticAudio } from '../services/soundtrack';
 
 export interface BookChapterData {
   id: number | string;
@@ -39,6 +40,7 @@ export const PageTurnBook: React.FC<PageTurnBookProps> = ({
   const [isTurning, setIsTurning] = useState(false);
   const [isSoundMuted, setIsSoundMuted] = useState(() => paperFlipAudio.getIsMuted());
   const bookContainerRef = useRef<HTMLDivElement>(null);
+  const touchStartCoords = useRef<{ x: number; y: number } | null>(null);
 
   // Sync if initialChapterIndex prop changes externally
   useEffect(() => {
@@ -59,6 +61,29 @@ export const PageTurnBook: React.FC<PageTurnBookProps> = ({
   const isFirst = currentIdx === 0;
   const isLast = currentIdx === total - 1;
 
+  // Synchronize soundtrack: Play Dil Se Dil at 30% volume ONLY when entering Chapter 6 ("The Boy Behind the Story")
+  useEffect(() => {
+    const chapter = chapters[currentIdx];
+    if (!chapter) return;
+
+    const hasChapter6 = chapters.some(
+      (c) => c.chapterNumber === 6 || (typeof c.title === 'string' && c.title.toLowerCase().includes('boy behind'))
+    );
+    if (!hasChapter6) return;
+
+    const isChapter6 =
+      chapter.chapterNumber === 6 ||
+      (typeof chapter.title === 'string' && chapter.title.toLowerCase().includes('boy behind'));
+
+    const isBeforeChapter6 = typeof chapter.chapterNumber === 'number' && chapter.chapterNumber < 6;
+
+    if (isChapter6) {
+      romanticAudio.playForChapter6().catch(() => {});
+    } else if (isBeforeChapter6) {
+      romanticAudio.pause();
+    }
+  }, [currentIdx, chapters]);
+
   const scrollToBookTop = () => {
     if (bookContainerRef.current) {
       bookContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -67,6 +92,25 @@ export const PageTurnBook: React.FC<PageTurnBookProps> = ({
 
   const turnToPage = (newIdx: number, direction: 'next' | 'prev') => {
     if (isTurning || newIdx === currentIdx || newIdx < 0 || newIdx >= total) return;
+
+    const targetChap = chapters[newIdx];
+    if (targetChap) {
+      const hasChapter6 = chapters.some(
+        (c) => c.chapterNumber === 6 || (typeof c.title === 'string' && c.title.toLowerCase().includes('boy behind'))
+      );
+      if (hasChapter6) {
+        const isEnteringChapter6 =
+          targetChap.chapterNumber === 6 ||
+          (typeof targetChap.title === 'string' && targetChap.title.toLowerCase().includes('boy behind'));
+        const isTurningBeforeChapter6 = typeof targetChap.chapterNumber === 'number' && targetChap.chapterNumber < 6;
+
+        if (isEnteringChapter6) {
+          romanticAudio.playForChapter6().catch(() => {});
+        } else if (isTurningBeforeChapter6) {
+          romanticAudio.pause();
+        }
+      }
+    }
 
     // Accessibility check: prefers-reduced-motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -101,6 +145,56 @@ export const PageTurnBook: React.FC<PageTurnBookProps> = ({
       turnToPage(currentIdx - 1, 'prev');
     } else if (onReturnHome) {
       onReturnHome();
+    }
+  };
+
+  // Keyboard & TV Remote Navigation (ArrowLeft / ArrowRight / PageUp / PageDown)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+        return;
+      }
+
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        if (!isLast && !isTurning) {
+          e.preventDefault();
+          handleNext();
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        if (!isFirst && !isTurning) {
+          e.preventDefault();
+          handlePrev();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIdx, isTurning, isFirst, isLast]);
+
+  // Mobile Touch Swipe detection (Swipe left = next page, swipe right = prev page)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isTurning || e.touches.length !== 1) return;
+    touchStartCoords.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartCoords.current || isTurning || e.changedTouches.length !== 1) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartCoords.current.x;
+    const deltaY = e.changedTouches[0].clientY - touchStartCoords.current.y;
+    touchStartCoords.current = null;
+
+    // Horizontal swipe threshold: > 45px and predominantly horizontal
+    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.35) {
+      if (deltaX < 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
     }
   };
 
@@ -303,8 +397,12 @@ export const PageTurnBook: React.FC<PageTurnBookProps> = ({
         </div>
       </div>
 
-      {/* 3D Physical Book Container */}
-      <div className="w-full relative py-2 [perspective:1400px]">
+      {/* 3D Physical Book Container (with Touch Swipe Support for Phones) */}
+      <div
+        className="w-full relative py-2 [perspective:1400px] touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Book Outer Spine & Paper Depth Effect (Hardcover illusion) */}
         <div className="absolute -inset-1.5 sm:-inset-2.5 bg-gradient-to-r from-[#D8B4C0]/50 via-[#E8CBD4]/30 to-[#FAF0F4]/40 rounded-[28px] sm:rounded-[34px] shadow-[0_18px_45px_rgba(90,53,69,0.14)] -z-10" />
 
@@ -349,13 +447,13 @@ export const PageTurnBook: React.FC<PageTurnBookProps> = ({
           {renderPageContent(isTurning ? targetChapter : currentChapter)}
         </div>
 
-        {/* REALISTIC CURVED PAPER DEFORMATION OVERLAY */}
+        {/* GPU HARDWARE-ACCELERATED CURVED PAPER DEFORMATION OVERLAY */}
         {isTurning && turnDirection && (
           <CurvedPaperSheet
             currentChapter={currentChapter}
             targetChapter={targetChapter}
             direction={turnDirection}
-            duration={1100}
+            duration={540}
             onComplete={() => {
               setCurrentIdx(targetIdx);
               setIsTurning(false);

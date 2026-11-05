@@ -29,6 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (key === 'notes-shared') return activeSection === 'notes-shared' || activeSection === 'notes' || activeSection === 'notes-section';
     if (key === 'notes-private') return activeSection === 'notes-private';
     if (key === 'little-things-section') return activeSection === 'little-things-section' || activeSection === 'little-things';
+    if (key === 'no-one-else-section') return activeSection === 'no-one-else-section' || activeSection === 'no-one-else';
     if (key === 'proposal-section') return activeSection === 'proposal-section' || activeSection === 'questions';
     return false;
   };
@@ -90,6 +91,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={navItemClass(isItemActive('little-things-section'))}
           >
             Little Things
+          </button>
+
+          <button
+            onClick={() => handleNavClick('no-one-else-section')}
+            className={navItemClass(isItemActive('no-one-else-section'))}
+          >
+            No One Else ♡
           </button>
 
           <button
@@ -165,6 +173,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               Little Things
+            </button>
+            <button
+              onClick={() => handleNavClick('no-one-else-section')}
+              className={`text-left py-2 px-3.5 rounded-xl font-medium transition-colors ${
+                isItemActive('no-one-else-section') ? 'bg-[#F8DCE5]/70 text-[#A64D68]' : 'hover:bg-[#F8DCE5]/30'
+              }`}
+            >
+              There's No One Else in My Heart ♡
             </button>
             <button
               onClick={() => handleNavClick('proposal-section')}

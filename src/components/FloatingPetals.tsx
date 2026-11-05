@@ -16,10 +16,13 @@ export const FloatingPetals: React.FC = () => {
   const [isEnabled, setIsEnabled] = useState(true);
 
   useEffect(() => {
-    // Generate restrained, delicate batch of slow-drifting particles
-    const items: Particle[] = Array.from({ length: 12 }).map((_, i) => ({
+    // Mobile optimization: 6 particles on mobile (<640px) to prevent compositor layer bloat, 12 on PC/TV
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    const count = isMobile ? 6 : 12;
+
+    const items: Particle[] = Array.from({ length: count }).map((_, i) => ({
       id: i,
-      x: Math.random() * 96 + 2, // percentage across viewport
+      x: Math.random() * 94 + 3, // percentage across viewport
       size: Math.random() * 8 + 8, // subtle size 8-16px
       duration: Math.random() * 10 + 16, // slow 16-26s fall
       delay: Math.random() * 12,
@@ -51,12 +54,14 @@ export const FloatingPetals: React.FC = () => {
       {particles.map((p) => (
         <div
           key={p.id}
-          className="absolute top-[-40px]"
+          className="absolute top-[-40px] will-change-transform"
           style={{
             left: `${p.x}%`,
             animation: `floatingPetal ${p.duration}s linear infinite`,
             animationDelay: `${p.delay}s`,
             opacity: p.opacity,
+            willChange: 'transform',
+            transform: 'translateZ(0)',
           }}
         >
           {p.type === 'petal' && (
@@ -106,13 +111,20 @@ export const FloatingPetals: React.FC = () => {
       <style>{`
         @keyframes floatingPetal {
           0% {
-            transform: translateY(-50px) translateX(0px) rotate(0deg);
+            transform: translate3d(0, -50px, 0) rotate(0deg);
           }
           50% {
-            transform: translateY(50vh) translateX(45px) rotate(180deg);
+            transform: translate3d(45px, 50vh, 0) rotate(180deg);
           }
           100% {
-            transform: translateY(105vh) translateX(-30px) rotate(360deg);
+            transform: translate3d(-30px, 105vh, 0) rotate(360deg);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes floatingPetal {
+            0%, 100% {
+              transform: translate3d(0, 0, 0);
+            }
           }
         }
       `}</style>

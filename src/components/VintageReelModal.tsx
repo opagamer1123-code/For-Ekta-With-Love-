@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize2,
-  Minimize,
   X,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   ChevronDown,
   Heart,
-  Sparkles,
   Film,
   ExternalLink,
 } from 'lucide-react';
 import { ReelItem, reelsData } from '../content/reels';
 import { romanticAudio } from '../services/soundtrack';
+import { CustomVideoProgressBar } from './CustomVideoProgressBar';
 
 export interface VintageReelModalProps {
   initialReel: ReelItem | null;
@@ -35,34 +32,53 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
   onToggleLike: propOnToggleLike,
 }) => {
   const currentSelectedReel = initialReel || reel || null;
-
-  // Active playable reels
   const activeReels = allReels.length > 0 ? allReels : reelsData;
   const initialIndex = currentSelectedReel
     ? Math.max(0, activeReels.findIndex((r) => r.id === currentSelectedReel.id))
     : 0;
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [videoError, setVideoError] = useState(false);
-
-  // Delicate & Fluid Entry/Exit Modal Animation State
   const [isEntered, setIsEntered] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Fluid scale, opacity and translate transform physics
+  // Real-time video playback position and progress tracking
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [buffered, setBuffered] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Reset video progress tracking when switching reels
+  useEffect(() => {
+    setCurrentTime(0);
+    setDuration(0);
+    setBuffered(0);
+    setIsPlaying(true);
+  }, [currentIndex]);
+
+  // Instagram Story & Reel real-time interactive drag physics
+  const [dragX, setDragX] = useState(0);
   const [dragY, setDragY] = useState(0);
-  const [cardScale, setCardScale] = useState(0.95);
-  const [cardOpacity, setCardOpacity] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [transitionStyle, setTransitionStyle] = useState<string>(
-    'transform 0.40s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.36s ease-out'
-  );
+  const [gestureDirection, setGestureDirection] = useState<'none' | 'horizontal' | 'vertical'>('none');
+  const [slideState, setSlideState] = useState<
+    | 'idle'
+    | 'exit-left'
+    | 'exit-right'
+    | 'enter-from-right'
+    | 'enter-from-left'
+    | 'exit-up'
+    | 'exit-down'
+    | 'enter-from-bottom'
+    | 'enter-from-top'
+  >('idle');
 
-  // Floating heart burst particles on clicking Like
+  // Instagram-style double tap to like heart bloom
+  const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
+
+  // Floating heart particles for Like button
   const [floatingHearts, setFloatingHearts] = useState<
     Array<{ id: number; offsetX: number; emoji: string }>
   >([]);
@@ -78,39 +94,43 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
     }
   });
 
-  const reelCardRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const backdropRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
-  // Touch & Swipe tracking refs
-  const touchStartYRef = useRef<number | null>(null);
-  const touchStartXRef = useRef<number | null>(null);
-  const touchStartTimeRef = useRef<number>(0);
-  const lastTouchYRef = useRef<number>(0);
-  const isDirectionLockedRef = useRef<boolean>(false);
-  const isSwipingVerticalRef = useRef<boolean>(false);
-  const wheelDebounceRef = useRef<boolean>(false);
-  const animationTimer1Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const animationTimer2Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Touch tracking refs
+  const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartTime = useRef<number>(0);
+  const wheelDebounce = useRef<boolean>(false);
+  const lastTapTime = useRef<number>(0);
 
-  // Smooth, delicate entry on mount
+  // Mount, body scroll lock, and background music pause
   useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      setIsEntered(true);
-      setCardScale(1);
-      setCardOpacity(1);
-    });
+    setIsMounted(true);
+    const timer = setTimeout(() => setIsEntered(true), 15);
 
-    // Pause romantic background song while she is watching the reel
+    // Lock body scroll while open
+    const originalOverflow = document.body.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    document.body.style.overflow = 'hidden';
+
+    // Pause romantic soundtrack during reel watching
     romanticAudio.pauseForReel();
 
     return () => {
-      cancelAnimationFrame(raf);
-      // Instantly resume background song right where it stopped when she stops watching
+      clearTimeout(timer);
+      document.body.style.overflow = originalOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
       romanticAudio.resumeFromReel();
     };
   }, []);
 
-  // Sync index if initialReel prop changes
+  // Update currentIndex if prop changes
   useEffect(() => {
     if (currentSelectedReel) {
       const idx = activeReels.findIndex((r) => r.id === currentSelectedReel.id);
@@ -121,20 +141,19 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
     }
   }, [currentSelectedReel, activeReels]);
 
-  // Sync liked reels from server if prop is not supplied
+  // Sync likes from server
   useEffect(() => {
     if (propLikedReelIds) return;
-    let isMounted = true;
+    let isSubscribed = true;
     fetch('/api/reels/likes')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!isMounted || !data) return;
+        if (!isSubscribed || !data) return;
         const incomingIds: number[] = Array.isArray(data.likedReelIds)
           ? data.likedReelIds
           : data.likes
           ? Object.keys(data.likes).map(Number)
           : [];
-
         if (incomingIds.length > 0) {
           setInternalLikedIds((prev) => {
             const merged = Array.from(new Set([...prev, ...incomingIds]));
@@ -147,358 +166,317 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
       })
       .catch(() => {});
     return () => {
-      isMounted = false;
+      isSubscribed = false;
     };
   }, [propLikedReelIds]);
 
-  // Clean up any pending animation timers on unmount
-  useEffect(() => {
-    return () => {
-      if (animationTimer1Ref.current) clearTimeout(animationTimer1Ref.current);
-      if (animationTimer2Ref.current) clearTimeout(animationTimer2Ref.current);
-    };
-  }, []);
+  const activeLikedIds = propLikedReelIds ?? internalLikedIds;
+  const currentReel = activeReels[currentIndex] || activeReels[0];
+  const isCurrentReelLiked = currentReel ? activeLikedIds.includes(currentReel.id) : false;
 
-  const currentReel = activeReels[currentIndex] || currentSelectedReel;
-  const likedList = propLikedReelIds ?? internalLikedIds;
-  const isCurrentReelLiked = currentReel ? likedList.includes(currentReel.id) : false;
-
-  const formatReelNumber = (id: number) => {
-    return `REEL ${String(id).padStart(2, '0')}`;
-  };
-
-  // Safe, delicate Exit Handler with subtle scale-down and fade
   const handleClose = useCallback(() => {
-    if (isClosing) return;
-    if (animationTimer1Ref.current) clearTimeout(animationTimer1Ref.current);
-    if (animationTimer2Ref.current) clearTimeout(animationTimer2Ref.current);
-
     setIsClosing(true);
-    setTransitionStyle('transform 0.30s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease-in-out');
-    setCardScale(0.95);
-    setCardOpacity(0);
-
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
-
-    // Instantly start background song where it was stopped
     romanticAudio.resumeFromReel();
-
     setTimeout(() => {
       onClose();
-      setIsClosing(false);
-    }, 310);
-  }, [isClosing, onClose]);
+    }, 200);
+  }, [onClose]);
 
-  // Delicate & Fluid Reel Switch Animation with subtle fade and scale transform
-  const triggerReelTransition = useCallback(
-    (direction: 'next' | 'prev') => {
-      if (isTransitioning || activeReels.length <= 1) return;
-      setIsTransitioning(true);
-      setVideoError(false);
-
-      if (animationTimer1Ref.current) clearTimeout(animationTimer1Ref.current);
-      if (animationTimer2Ref.current) clearTimeout(animationTimer2Ref.current);
-
-      if (videoRef.current) {
-        videoRef.current.pause();
-      }
-
-      // Phase 1: Subtle fluid exit glide with gentle scale and fade
-      const exitDistance = direction === 'next' ? -window.innerHeight * 0.45 : window.innerHeight * 0.45;
-      setTransitionStyle('transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease-out');
-      setDragY(exitDistance);
-      setCardScale(0.94);
-      setCardOpacity(0.06);
-
-      // Phase 2: Index switch and instant reposition at entrance boundary
-      animationTimer1Ref.current = setTimeout(() => {
-        setCurrentIndex((prev) => {
-          if (direction === 'next') {
-            return (prev + 1) % activeReels.length;
-          } else {
-            return prev === 0 ? activeReels.length - 1 : prev - 1;
-          }
-        });
-
-        const entranceDistance = direction === 'next' ? window.innerHeight * 0.42 : -window.innerHeight * 0.42;
-        setTransitionStyle('none');
-        setDragY(entranceDistance);
-        setCardScale(0.95);
-        setCardOpacity(0.3);
-
-        // Phase 3: Delicate spring entrance into center with smooth scale recovery
-        animationTimer2Ref.current = setTimeout(() => {
-          setTransitionStyle('transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.32s ease-out');
-          setDragY(0);
-          setCardScale(1);
-          setCardOpacity(1);
-
-          setTimeout(() => {
-            setIsTransitioning(false);
-            setTransitionStyle('none');
-          }, 390);
-        }, 16);
-      }, 240);
-    },
-    [activeReels.length, isTransitioning]
-  );
-
-  const handleNext = useCallback(() => {
-    triggerReelTransition('next');
-  }, [triggerReelTransition]);
-
-  const handlePrev = useCallback(() => {
-    triggerReelTransition('prev');
-  }, [triggerReelTransition]);
-
-  // Video play / pause toggle
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          romanticAudio.pauseForReel();
-        })
-        .catch(() => {});
-    } else {
+  // Instagram Story Horizontal Flip Transitions (Swipe Left/Right)
+  const triggerStoryFlipNext = useCallback(() => {
+    if (activeReels.length <= 1) return;
+    if (videoRef.current) {
       videoRef.current.pause();
-      setIsPlaying(false);
-      romanticAudio.resumeFromReel();
     }
-  };
+    setSlideState('exit-left');
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % activeReels.length);
+      setVideoError(false);
+      setDragX(0);
+      setDragY(0);
+      setSlideState('enter-from-right');
+      requestAnimationFrame(() => {
+        setTimeout(() => setSlideState('idle'), 280);
+      });
+    }, 200);
+  }, [activeReels.length]);
 
-  // Volume & Mute Controls
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    const nextMuted = !isMuted;
-    videoRef.current.muted = nextMuted;
-    setIsMuted(nextMuted);
-  };
-
-  // Fullscreen Toggle
-  const toggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        if (reelCardRef.current?.requestFullscreen) {
-          await reelCardRef.current.requestFullscreen();
-          setIsFullscreen(true);
-        }
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-          setIsFullscreen(false);
-        }
-      }
-    } catch (err) {
-      console.warn('Fullscreen request:', err);
+  const triggerStoryFlipPrev = useCallback(() => {
+    if (activeReels.length <= 1) return;
+    if (videoRef.current) {
+      videoRef.current.pause();
     }
-  };
+    setSlideState('exit-right');
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev - 1 + activeReels.length) % activeReels.length);
+      setVideoError(false);
+      setDragX(0);
+      setDragY(0);
+      setSlideState('enter-from-left');
+      requestAnimationFrame(() => {
+        setTimeout(() => setSlideState('idle'), 280);
+      });
+    }, 200);
+  }, [activeReels.length]);
 
+  // Vertical Reel Slide Transitions (Swipe Up/Down)
+  const triggerSlideToNext = useCallback(() => {
+    if (activeReels.length <= 1) return;
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+    setSlideState('exit-up');
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % activeReels.length);
+      setVideoError(false);
+      setDragX(0);
+      setDragY(0);
+      setSlideState('enter-from-bottom');
+      requestAnimationFrame(() => {
+        setTimeout(() => setSlideState('idle'), 280);
+      });
+    }, 200);
+  }, [activeReels.length]);
+
+  const triggerSlideToPrev = useCallback(() => {
+    if (activeReels.length <= 1) return;
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+    setSlideState('exit-down');
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev - 1 + activeReels.length) % activeReels.length);
+      setVideoError(false);
+      setDragX(0);
+      setDragY(0);
+      setSlideState('enter-from-top');
+      requestAnimationFrame(() => {
+        setTimeout(() => setSlideState('idle'), 280);
+      });
+    }, 200);
+  }, [activeReels.length]);
+
+  // Autoplay video on reel change
   useEffect(() => {
-    const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, []);
+    const vid = videoRef.current;
+    if (vid) {
+      vid.currentTime = 0;
+      const playPromise = vid.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            romanticAudio.pauseForReel();
+          })
+          .catch(() => {
+            // Autoplay note: handled by tap gesture
+          });
+      }
+    }
+  }, [currentIndex, currentReel?.id]);
 
-  // Keyboard Navigation
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleClose();
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
+      } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        handleNext();
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+        triggerStoryFlipNext();
+      } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        handlePrev();
-      } else if (e.key === ' ' || e.key === 'k') {
+        triggerStoryFlipPrev();
+      } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        togglePlay();
-      } else if (e.key === 'm') {
+        triggerSlideToNext();
+      } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        toggleMute();
-      } else if (e.key === 'f') {
-        e.preventDefault();
-        toggleFullscreen();
+        triggerSlideToPrev();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [handleClose, handleNext, handlePrev]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleClose, triggerStoryFlipNext, triggerStoryFlipPrev, triggerSlideToNext, triggerSlideToPrev]);
 
-  // Autoplay video when active reel changes
-  useEffect(() => {
-    if (videoRef.current && currentReel?.videoUrl) {
-      videoRef.current.currentTime = 0;
-      const playPromise = videoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => setIsPlaying(true))
-          .catch(() => {
-            setIsPlaying(false);
-          });
-      }
-    }
-  }, [currentReel?.id, currentReel?.videoUrl]);
-
-  // Desktop Mouse Wheel Navigation
+  // Desktop Trackpad & Mouse Wheel
   const handleWheel = (e: React.WheelEvent) => {
-    if (Math.abs(e.deltaY) < 30 || wheelDebounceRef.current || isTransitioning) return;
-    wheelDebounceRef.current = true;
-    setTimeout(() => {
-      wheelDebounceRef.current = false;
-    }, 450);
+    if (wheelDebounce.current) return;
 
-    if (e.deltaY > 0) {
-      handleNext();
-    } else {
-      handlePrev();
+    if (Math.abs(e.deltaX) > 28 && Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      wheelDebounce.current = true;
+      if (e.deltaX > 0) {
+        triggerStoryFlipNext();
+      } else {
+        triggerStoryFlipPrev();
+      }
+      setTimeout(() => {
+        wheelDebounce.current = false;
+      }, 420);
+      return;
+    }
+
+    if (Math.abs(e.deltaY) > 32) {
+      wheelDebounce.current = true;
+      if (e.deltaY > 0) {
+        triggerSlideToNext();
+      } else {
+        triggerSlideToPrev();
+      }
+      setTimeout(() => {
+        wheelDebounce.current = false;
+      }, 420);
     }
   };
 
-  // 1:1 Tactile Touch Dragging for Mobile
+  // Touch Swipe Gesture Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
-    const target = e.target as HTMLElement | null;
-    if (target?.closest('button, a, input, select, textarea, [data-interactive="true"]')) {
-      return;
-    }
-    if (isTransitioning || activeReels.length <= 1) return;
-
-    touchStartYRef.current = e.touches[0].clientY;
-    touchStartXRef.current = e.touches[0].clientX;
-    lastTouchYRef.current = e.touches[0].clientY;
-    touchStartTimeRef.current = Date.now();
-    isDirectionLockedRef.current = false;
-    isSwipingVerticalRef.current = false;
+    if (slideState !== 'idle') return;
+    const touch = e.touches[0];
+    touchStartY.current = touch.clientY;
+    touchStartX.current = touch.clientX;
+    touchStartTime.current = Date.now();
+    setGestureDirection('none');
+    setIsDragging(false);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartYRef.current === null || touchStartXRef.current === null || isTransitioning) return;
+    if (touchStartY.current === null || touchStartX.current === null || slideState !== 'idle') return;
+    const touch = e.touches[0];
+    const deltaY = touch.clientY - touchStartY.current;
+    const deltaX = touch.clientX - touchStartX.current;
 
-    const currentY = e.touches[0].clientY;
-    const currentX = e.touches[0].clientX;
-    const deltaY = currentY - touchStartYRef.current;
-    const deltaX = currentX - touchStartXRef.current;
-
-    // Direction lock: verify user is swiping vertically
-    if (!isDirectionLockedRef.current) {
-      if (Math.abs(deltaY) > 5 || Math.abs(deltaX) > 5) {
-        isDirectionLockedRef.current = true;
-        if (Math.abs(deltaY) >= Math.abs(deltaX)) {
-          isSwipingVerticalRef.current = true;
+    if (gestureDirection === 'none') {
+      if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
+        if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+          setGestureDirection('horizontal');
+          setIsDragging(true);
         } else {
-          isSwipingVerticalRef.current = false;
-          return;
+          setGestureDirection('vertical');
+          setIsDragging(true);
         }
-      } else {
-        return;
       }
-    }
-
-    if (!isSwipingVerticalRef.current) return;
-
-    lastTouchYRef.current = currentY;
-    setIsDragging(true);
-    setTransitionStyle('none');
-
-    // 1:1 direct finger tracking with natural elasticity
-    setDragY(deltaY);
-
-    // Subtle tactile scale & opacity feedback
-    const progress = Math.min(Math.abs(deltaY) / 380, 1);
-    setCardOpacity(1 - progress * 0.16);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartYRef.current === null || !isSwipingVerticalRef.current || isTransitioning) {
-      touchStartYRef.current = null;
-      touchStartXRef.current = null;
-      isSwipingVerticalRef.current = false;
       return;
     }
 
-    const endY = e.changedTouches[0]?.clientY ?? lastTouchYRef.current;
-    const deltaY = endY - touchStartYRef.current;
-    const duration = Math.max(Date.now() - touchStartTimeRef.current, 1);
-    const velocity = deltaY / duration; // px per millisecond
-
-    setIsDragging(false);
-    touchStartYRef.current = null;
-    touchStartXRef.current = null;
-    isSwipingVerticalRef.current = false;
-
-    // Swipe UP (finger moved up) -> Advance to NEXT reel
-    if (deltaY < -38 || (deltaY < -15 && velocity < -0.26)) {
-      triggerReelTransition('next');
-    }
-    // Swipe DOWN (finger moved down) -> PREVIOUS reel
-    else if (deltaY > 38 || (deltaY > 15 && velocity > 0.26)) {
-      triggerReelTransition('prev');
-    }
-    // Released before threshold -> Snappy spring snapback
-    else {
-      setTransitionStyle('transform 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.26s ease-out');
-      setDragY(0);
-      setCardScale(1);
-      setCardOpacity(1);
+    if (gestureDirection === 'horizontal') {
+      const damping = 0.88;
+      setDragX(deltaX * damping);
+    } else if (gestureDirection === 'vertical') {
+      const damping = 0.85;
+      setDragY(deltaY * damping);
     }
   };
 
-  // Like Click Handler
+  const handleTouchEnd = () => {
+    if (touchStartY.current === null || touchStartX.current === null) return;
+    const duration = Date.now() - touchStartTime.current;
+    const currentDragX = dragX;
+    const currentDragY = dragY;
+
+    setIsDragging(false);
+
+    const threshold = 48;
+    const isFastFlick = duration < 280;
+
+    if (gestureDirection === 'horizontal') {
+      if (currentDragX < -threshold || (isFastFlick && currentDragX < -20)) {
+        triggerStoryFlipNext();
+      } else if (currentDragX > threshold || (isFastFlick && currentDragX > 20)) {
+        triggerStoryFlipPrev();
+      } else {
+        setDragX(0);
+      }
+    } else if (gestureDirection === 'vertical') {
+      if (currentDragY < -threshold || (isFastFlick && currentDragY < -20)) {
+        triggerSlideToNext();
+      } else if (currentDragY > threshold || (isFastFlick && currentDragY > 20)) {
+        triggerSlideToPrev();
+      } else {
+        setDragY(0);
+      }
+    }
+
+    touchStartY.current = null;
+    touchStartX.current = null;
+    setGestureDirection('none');
+  };
+
+  // Click outside to close (only on backdrop)
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === backdropRef.current) {
+      handleClose();
+    }
+  };
+
+  // Delicate haptic feedback via Vibration API for mobile tactile response
+  const triggerDelicateHapticPulse = (action: 'like' | 'unlike' = 'like') => {
+    if (typeof window !== 'undefined' && 'navigator' in window && typeof navigator.vibrate === 'function') {
+      try {
+        if (action === 'like') {
+          // Delicate, tactile heartbeat pulse: crisp micro-tap sequence [14, 35, 18]
+          navigator.vibrate([14, 35, 18]);
+        } else {
+          // Soft, gentle tactile release pulse for unlike
+          navigator.vibrate(10);
+        }
+      } catch {
+        // Safe fallback if device vibration is restricted by browser policy
+      }
+    }
+  };
+
+  // Instagram-style Like & Unlike Toggle Handler
   const handleLikeClick = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!currentReel) return;
 
-    // Trigger floating hearts burst
-    const burstId = Date.now();
-    const burstParticles = [
-      { id: burstId + 1, offsetX: -22, emoji: '♡' },
-      { id: burstId + 2, offsetX: -7, emoji: '❤️' },
-      { id: burstId + 3, offsetX: 7, emoji: '✨' },
-      { id: burstId + 4, offsetX: 22, emoji: '♡' },
-    ];
-    setFloatingHearts((prev) => [...prev, ...burstParticles]);
-    setTimeout(() => {
-      setFloatingHearts((prev) =>
-        prev.filter((p) => !burstParticles.some((bp) => bp.id === p.id))
-      );
-    }, 1300);
+    const reelId = currentReel.id;
+    const isCurrentlyLiked = activeLikedIds.includes(reelId);
+    const willBeLiked = !isCurrentlyLiked;
+
+    // Trigger delicate, tactile haptic response on mobile devices
+    triggerDelicateHapticPulse(willBeLiked ? 'like' : 'unlike');
+
+    if (willBeLiked) {
+      // 1. Liking: Show floating hearts burst
+      const burstId = Date.now();
+      const burstParticles = [
+        { id: burstId + 1, offsetX: -20, emoji: '♡' },
+        { id: burstId + 2, offsetX: -6, emoji: '❤️' },
+        { id: burstId + 3, offsetX: 8, emoji: '✨' },
+        { id: burstId + 4, offsetX: 22, emoji: '💕' },
+      ];
+      setFloatingHearts((prev) => [...prev, ...burstParticles]);
+      setTimeout(() => {
+        setFloatingHearts((prev) =>
+          prev.filter((p) => !burstParticles.some((bp) => bp.id === p.id))
+        );
+      }, 1300);
+    } else {
+      // 2. Unliking: Immediately clear floating hearts, transition smoothly
+      setFloatingHearts([]);
+    }
 
     if (propOnToggleLike) {
       propOnToggleLike(currentReel);
       return;
     }
 
-    const reelId = currentReel.id;
-    const isAlreadyLiked = internalLikedIds.includes(reelId);
+    // Local fallback update if propOnToggleLike not provided
+    const updated = willBeLiked
+      ? Array.from(new Set([...internalLikedIds, reelId]))
+      : internalLikedIds.filter((id) => id !== reelId);
 
-    if (isAlreadyLiked) {
-      const updated = internalLikedIds.filter((id) => id !== reelId);
-      setInternalLikedIds(updated);
-      try {
-        localStorage.setItem('for_ekta_liked_reels_v1', JSON.stringify(updated));
-      } catch {}
-      return;
-    }
-
-    const updated = [...internalLikedIds, reelId];
     setInternalLikedIds(updated);
     try {
       localStorage.setItem('for_ekta_liked_reels_v1', JSON.stringify(updated));
     } catch {}
 
+    // Dispatch like or unlike to backend
     fetch('/api/reels/like', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -506,46 +484,174 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
         reelId,
         reelTitle: currentReel.title,
         likedAt: new Date().toISOString(),
+        action: willBeLiked ? 'like' : 'unlike',
+        liked: willBeLiked,
       }),
     }).catch((err) => {
       console.warn('Silent reel like sync:', err);
     });
   };
 
-  if (!currentReel) return null;
+  // Instagram-style double tap on video to like
+  const handleVideoTouchOrClick = (e: React.MouseEvent | React.TouchEvent) => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+    if (now - lastTapTime.current < DOUBLE_TAP_DELAY) {
+      // Double tap only likes (never unlikes, matching Instagram)
+      if (!isCurrentReelLiked) {
+        handleLikeClick();
+      }
+      setShowDoubleTapHeart(true);
+      setTimeout(() => setShowDoubleTapHeart(false), 850);
+      lastTapTime.current = 0;
+    } else {
+      lastTapTime.current = now;
+    }
+  };
 
-  const hasVideo = Boolean(currentReel.videoUrl && currentReel.videoUrl.trim().length > 0 && !videoError);
+  if (!isMounted || typeof document === 'undefined' || !currentReel) {
+    return null;
+  }
+
+  const hasVideo = Boolean(
+    currentReel.videoUrl && currentReel.videoUrl.trim().length > 0 && !videoError
+  );
   const isGooglePhotosLink =
     Boolean(currentReel.videoUrl) &&
     (currentReel.videoUrl.includes('photos.google.com') ||
       currentReel.videoUrl.includes('photos.app.goo.gl'));
 
-  // Calculate dynamic scale during drag or transitions
-  const currentScale = isDragging
-    ? Math.max(0.96, 1 - Math.abs(dragY) / 2200)
-    : cardScale;
+  const formatReelNumber = (id: number) => `REEL ${String(id).padStart(2, '0')}`;
 
-  return (
+  // 3D Story Flip Transform
+  const getCardTransformStyle = () => {
+    if (isDragging) {
+      if (gestureDirection === 'horizontal') {
+        const rotY = Math.max(-26, Math.min(26, -dragX / 12));
+        const scale = Math.max(0.94, 1 - Math.abs(dragX) / 1800);
+        return {
+          transform: `translate3d(${dragX}px, 0, 0) rotateY(${rotY}deg) scale(${scale})`,
+          transition: 'none',
+          transformOrigin: dragX < 0 ? 'right center' : 'left center',
+        };
+      } else {
+        const scale = Math.max(0.95, 1 - Math.abs(dragY) / 1600);
+        return {
+          transform: `translate3d(0, ${dragY}px, 0) scale(${scale})`,
+          transition: 'none',
+        };
+      }
+    }
+
+    if (slideState === 'exit-left') {
+      return {
+        transform: 'translate3d(-110%, 0, 0) rotateY(-28deg) scale(0.9)',
+        opacity: 0,
+        transition: 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease-in',
+        transformOrigin: 'right center',
+      };
+    }
+
+    if (slideState === 'exit-right') {
+      return {
+        transform: 'translate3d(110%, 0, 0) rotateY(28deg) scale(0.9)',
+        opacity: 0,
+        transition: 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease-in',
+        transformOrigin: 'left center',
+      };
+    }
+
+    if (slideState === 'enter-from-right' || slideState === 'enter-from-left') {
+      return {
+        transform: 'translate3d(0, 0, 0) rotateY(0deg) scale(1)',
+        opacity: 1,
+        transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease-out',
+      };
+    }
+
+    if (slideState === 'exit-up') {
+      return {
+        transform: 'translate3d(0, -115%, 0) scale(0.92)',
+        opacity: 0,
+        transition: 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease-in',
+      };
+    }
+
+    if (slideState === 'exit-down') {
+      return {
+        transform: 'translate3d(0, 115%, 0) scale(0.92)',
+        opacity: 0,
+        transition: 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease-in',
+      };
+    }
+
+    if (slideState === 'enter-from-bottom' || slideState === 'enter-from-top') {
+      return {
+        transform: 'translate3d(0, 0, 0) scale(1)',
+        opacity: 1,
+        transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease-out',
+      };
+    }
+
+    return {
+      transform: 'translate3d(0, 0, 0) rotateY(0deg) scale(1)',
+      opacity: 1,
+      transition: 'transform 0.32s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease-out',
+    };
+  };
+
+  const modalJSX = (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-md transition-opacity select-none overflow-hidden duration-350 ease-in-out ${
-        isEntered && !isClosing ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}
-      onClick={handleClose}
+      ref={backdropRef}
+      onClick={handleBackdropClick}
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      className={`fixed inset-0 z-[99999] flex items-center justify-center p-0 xs:p-2 sm:p-4 bg-black/88 backdrop-blur-md transition-opacity duration-300 select-none overflow-hidden touch-none overscroll-none ${
+        isEntered && !isClosing ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100dvh',
+        perspective: '1200px',
+      }}
       role="dialog"
       aria-modal="true"
       aria-label={`${formatReelNumber(currentReel.id)}: ${currentReel.title}`}
     >
-      {/* Real-time Swipe Direction Indicator Pill */}
-      {isDragging && Math.abs(dragY) > 22 && (
+      {/* Real-time Horizontal Drag Indicator Pill */}
+      {isDragging && gestureDirection === 'horizontal' && Math.abs(dragX) > 18 && (
+        <div
+          className="fixed z-50 top-5 sm:top-7 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-sans font-semibold text-white backdrop-blur-md shadow-2xl pointer-events-none transition-all flex items-center gap-2 border border-white/20 bg-[#A64D68]/95"
+          style={{ opacity: Math.min(Math.abs(dragX) / 45, 1) }}
+        >
+          {dragX < 0 ? (
+            <>
+              <span>Next Memory</span>
+              <ChevronRight className="w-3.5 h-3.5 animate-pulse" />
+            </>
+          ) : (
+            <>
+              <ChevronLeft className="w-3.5 h-3.5 animate-pulse" />
+              <span>Previous Memory</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Real-time Vertical Drag Indicator Pill */}
+      {isDragging && gestureDirection === 'vertical' && Math.abs(dragY) > 20 && (
         <div
           className={`fixed z-50 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-sans font-semibold text-white backdrop-blur-md shadow-2xl pointer-events-none transition-all flex items-center gap-2 border border-white/20 ${
-            dragY < 0 ? 'top-6 bg-[#A64D68]/95' : 'bottom-6 bg-[#5A3545]/95'
+            dragY < 0 ? 'top-5 sm:top-7 bg-[#A64D68]/95' : 'bottom-5 sm:bottom-7 bg-[#5A3545]/95'
           }`}
-          style={{ opacity: Math.min(Math.abs(dragY) / 60, 1) }}
+          style={{ opacity: Math.min(Math.abs(dragY) / 50, 1) }}
         >
           {dragY < 0 ? (
             <>
@@ -561,274 +667,337 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
         </div>
       )}
 
+      {/* Top-Right Screen Close Button */}
+      <button
+        type="button"
+        onClick={handleClose}
+        className="fixed top-3 right-3 sm:top-5 sm:right-5 z-50 w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white border border-white/20 backdrop-blur-md flex items-center justify-center shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95"
+        aria-label="Close viewer (Esc)"
+        title="Close viewer (Esc)"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      {/* Desktop Left Navigation Button */}
+      {activeReels.length > 1 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            triggerStoryFlipPrev();
+          }}
+          className="hidden md:flex flex-col items-center justify-center fixed left-3 lg:left-8 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 text-white border border-white/20 backdrop-blur-md shadow-2xl transition-all hover:scale-110 active:scale-95 cursor-pointer group"
+          title="Previous Memory (Swipe Right or ← Key)"
+          aria-label="Previous Memory"
+        >
+          <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
+        </button>
+      )}
+
+      {/* Desktop Right Navigation Button */}
+      {activeReels.length > 1 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            triggerStoryFlipNext();
+          }}
+          className="hidden md:flex flex-col items-center justify-center fixed right-3 lg:right-8 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 text-white border border-white/20 backdrop-blur-md shadow-2xl transition-all hover:scale-110 active:scale-95 cursor-pointer group"
+          title="Next Memory (Swipe Left or → Key)"
+          aria-label="Next Memory"
+        >
+          <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      )}
+
       {/* =================================================================== */}
-      {/* PURE REEL CONTAINER — NO EXTRA FRAMES, DELICATE FADE & SCALE */}
+      {/* CLEAN, FRAMELESS REEL VIEWER CARD                                   */}
+      {/* Immersive 9:16 Video Canvas with Clean Overlays                     */}
       {/* =================================================================== */}
       <div
-        ref={reelCardRef}
+        ref={cardRef}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full h-full sm:h-[min(90dvh,820px)] sm:w-auto aspect-auto sm:aspect-[9/16] max-w-full sm:max-w-[min(440px,94vw)] rounded-none sm:rounded-3xl overflow-hidden bg-[#0A0508] shadow-[0_25px_65px_-10px_rgba(0,0,0,0.95)] border-0 sm:border sm:border-white/15 select-none flex flex-col justify-between"
+        className="relative my-auto w-full max-w-[min(94vw,400px)] sm:max-w-[420px] md:max-w-[430px] aspect-[9/16] max-h-[96dvh] sm:max-h-[90dvh] rounded-none xs:rounded-2xl sm:rounded-3xl overflow-hidden bg-black shadow-[0_25px_70px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col justify-between select-none will-change-transform"
         style={{
-          transform: `translate3d(0, ${dragY}px, 0) scale(${currentScale})`,
-          opacity: cardOpacity,
-          transition: transitionStyle,
-          willChange: 'transform, opacity',
-          touchAction: 'pan-x',
+          ...getCardTransformStyle(),
         }}
       >
-        {/* Full-bleed Video Layer with Blurred Ambient Backdrop */}
-        <div className="absolute inset-0 w-full h-full bg-[#0E070B] flex items-center justify-center overflow-hidden">
+        {/* Background Ambient Blur Video (for letterboxed videos) */}
+        {hasVideo && (
+          <video
+            src={currentReel.videoUrl}
+            muted
+            playsInline
+            autoPlay
+            loop
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none select-none"
+          />
+        )}
+
+        {/* Primary Video Element (Clean, centered, full 9:16 vertical stage) */}
+        <div
+          onClick={handleVideoTouchOrClick}
+          className="absolute inset-0 w-full h-full flex items-center justify-center cursor-pointer overflow-hidden z-10"
+        >
           {hasVideo ? (
             <>
-              {/* Blurred Ambient Backdrop Video */}
-              <video
-                src={currentReel.videoUrl}
-                poster={currentReel.thumbnailUrl || undefined}
-                muted
-                playsInline
-                autoPlay
-                loop
-                aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-cover blur-2xl scale-125 opacity-35 brightness-75 pointer-events-none select-none"
-              />
-
-              {/* Primary Video Element */}
               <video
                 ref={videoRef}
+                key={currentReel.id}
                 src={currentReel.videoUrl}
                 poster={currentReel.thumbnailUrl || undefined}
-                controls={false}
                 autoPlay
                 loop
                 playsInline
                 preload="auto"
                 onError={() => setVideoError(true)}
+                onTimeUpdate={() => {
+                  if (videoRef.current) {
+                    setCurrentTime(videoRef.current.currentTime);
+                    if (videoRef.current.buffered.length > 0) {
+                      setBuffered(
+                        videoRef.current.buffered.end(videoRef.current.buffered.length - 1)
+                      );
+                    }
+                  }
+                }}
+                onLoadedMetadata={() => {
+                  if (videoRef.current) {
+                    setDuration(videoRef.current.duration || 0);
+                  }
+                }}
                 onPlay={() => {
-                  setIsPlaying(true);
                   romanticAudio.pauseForReel();
+                  setIsPlaying(true);
                 }}
-                onPause={() => {
-                  setIsPlaying(false);
-                  romanticAudio.resumeFromReel();
-                }}
-                onEnded={() => {
-                  setIsPlaying(false);
-                  romanticAudio.resumeFromReel();
-                }}
-                onClick={togglePlay}
-                className="relative z-10 w-full h-full object-contain cursor-pointer"
+                onPause={() => setIsPlaying(false)}
+                className="w-full h-full object-contain mx-auto my-auto block bg-black/60"
               />
 
-              {/* Centered Play Indicator When Paused */}
-              {!isPlaying && (
-                <button
-                  type="button"
-                  onClick={togglePlay}
-                  className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md flex items-center justify-center shadow-2xl transition-all scale-100 hover:scale-110 cursor-pointer z-30 border border-white/20"
-                  aria-label="Play video"
-                >
-                  <Play className="w-7 h-7 ml-1 fill-white" />
-                </button>
+              {/* Instagram Double-Tap Heart Bloom Animation */}
+              {showDoubleTapHeart && (
+                <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
+                  <div className="animate-instagram-heart-bloom text-[#E2556E] drop-shadow-[0_10px_25px_rgba(226,85,110,0.6)]">
+                    <Heart className="w-24 h-24 sm:w-28 sm:h-28 fill-[#E2556E]" />
+                  </div>
+                </div>
               )}
             </>
           ) : isGooglePhotosLink || videoError ? (
-            <div className="p-6 text-center space-y-3 max-w-xs mx-auto text-[#FFF8ED]">
-              <div className="w-14 h-14 rounded-full bg-[#A64D68]/40 border border-[#C7A66A]/60 text-[#F8DCE5] flex items-center justify-center mx-auto shadow-inner">
-                <Film className="w-7 h-7 text-[#F8DCE5]" />
+            <div className="p-6 text-center space-y-3 max-w-xs mx-auto text-[#FFF8ED] z-20">
+              <div className="w-12 h-12 rounded-full bg-white/10 border border-white/20 text-[#F8DCE5] flex items-center justify-center mx-auto shadow-inner">
+                <Film className="w-6 h-6 text-[#F8DCE5]" />
               </div>
               <div className="space-y-1">
-                <span className="inline-block text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-[#A64D68] text-[#FFF8ED] border border-[#C7A66A]/40">
+                <span className="inline-block text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/20">
                   Google Photos Memory
                 </span>
-                <h4 className="font-heading font-serif text-base text-[#FFFDF9] font-semibold">
+                <h4 className="font-heading font-serif text-sm text-white font-semibold">
                   {currentReel.title}
                 </h4>
               </div>
-              <p className="text-xs text-[#FFF8ED]/85 leading-relaxed font-letter">
-                This video is stored in Google Photos. Tap below to watch directly:
+              <p className="text-[11px] text-white/85 leading-relaxed font-letter">
+                This video memory is stored in Google Photos.
               </p>
               <a
                 href={currentReel.videoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#A64D68] to-[#8E3E56] hover:from-[#933D56] hover:to-[#5A3545] text-white text-xs font-semibold shadow-md border border-[#C7A66A]/50 transition-all cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#A64D68] to-[#8E3E56] text-white text-xs font-semibold shadow-md border border-white/20 transition-all cursor-pointer"
               >
                 <span>Watch in Google Photos</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
           ) : (
-            <div className="p-6 text-center space-y-3 max-w-xs mx-auto text-[#FFF8ED]">
-              <div className="w-14 h-14 rounded-full bg-white/10 text-[#F8DCE5] flex items-center justify-center mx-auto shadow-inner border border-white/20">
-                <Film className="w-7 h-7 text-[#F8DCE5]" />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-heading font-serif text-base text-white font-semibold">
-                  {currentReel.title}
-                </h4>
-                <p className="font-letter text-xs text-[#F8DCE5] italic">
-                  A sweet video memory prepared with love.
-                </p>
-              </div>
+            <div className="p-6 text-center space-y-2 text-white z-20">
+              <Film className="w-8 h-8 mx-auto text-[#F8DCE5]" />
+              <p className="font-serif text-sm text-white">{currentReel.title}</p>
             </div>
           )}
         </div>
 
-        {/* Top Header Scrim Overlay: Reel Badge, Counter & Controls */}
-        <div className="relative z-30 flex items-center justify-between p-3.5 sm:p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-white/95 text-[11px] font-sans font-semibold tracking-wider uppercase shadow-xs">
-              {formatReelNumber(currentReel.id)}
-            </span>
-            {activeReels.length > 1 && (
-              <span className="text-[11px] font-mono text-white/80 bg-black/35 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
+        {/* =================================================================== */}
+        {/* TOP OVERLAY: STORY DASHES, REEL BADGE & CLOSE BUTTON                */}
+        {/* =================================================================== */}
+        <div className="relative z-30 pt-2.5 pb-8 px-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
+          {/* Clean Segmented Story Progress Bar with Live Playback Fill */}
+          <div className="flex items-center gap-1 w-full pb-2 pointer-events-auto">
+            {activeReels.map((item, idx) => (
+              <div
+                key={item.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (idx !== currentIndex) {
+                    if (videoRef.current) videoRef.current.pause();
+                    setSlideState(idx > currentIndex ? 'exit-left' : 'exit-right');
+                    setTimeout(() => {
+                      setCurrentIndex(idx);
+                      setSlideState(idx > currentIndex ? 'enter-from-right' : 'enter-from-left');
+                      setTimeout(() => setSlideState('idle'), 280);
+                    }, 180);
+                  }
+                }}
+                className="h-1 flex-1 rounded-full cursor-pointer transition-all duration-300 relative overflow-hidden bg-white/25 hover:bg-white/40"
+                title={`Memory ${idx + 1}: ${item.title}`}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-75"
+                  style={{
+                    width:
+                      idx < currentIndex
+                        ? '100%'
+                        : idx === currentIndex
+                        ? `${duration > 0 ? (currentTime / duration) * 100 : 0}%`
+                        : '0%',
+                    backgroundColor: idx === currentIndex ? '#FFD166' : 'white',
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Top Bar Header */}
+          <div className="flex items-center justify-between pt-0.5">
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-sans font-bold tracking-wider uppercase bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-xs">
+                {formatReelNumber(currentReel.id)}
+              </span>
+              <span className="text-[10px] sm:text-[11px] font-mono text-white/80 bg-black/30 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
                 {currentIndex + 1} / {activeReels.length}
               </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Mute/Unmute Quick Toggle */}
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 active:scale-90 text-white backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg transition-all cursor-pointer"
-              title={isMuted ? 'Unmute' : 'Mute'}
-              aria-label={isMuted ? 'Unmute video' : 'Mute video'}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-
-            {/* Fullscreen Button */}
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 active:scale-90 text-white backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg transition-all cursor-pointer"
-              title="Toggle fullscreen"
-              aria-label="Toggle fullscreen"
-            >
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
-
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={handleClose}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/45 hover:bg-black/70 active:scale-90 text-white backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg transition-all cursor-pointer"
-              aria-label="Close video"
-            >
-              <X className="w-4 h-4 text-white" />
-            </button>
-          </div>
-        </div>
-
-        {/* Right-Side Interactive Action Column (Heart Like Button) */}
-        <div className="absolute right-3.5 bottom-20 sm:bottom-24 z-30 flex flex-col items-center gap-1.5">
-          {/* Floating mini-heart particles */}
-          {floatingHearts.map((heart) => (
-            <span
-              key={heart.id}
-              className="absolute pointer-events-none select-none text-base z-40"
-              style={{
-                left: `calc(50% + ${heart.offsetX}px)`,
-                bottom: '36px',
-                animation: 'floatUpHeart 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-              }}
-              aria-hidden="true"
-            >
-              {heart.emoji}
-            </span>
-          ))}
-
-          {/* Like Heart Button */}
-          <button
-            type="button"
-            onClick={handleLikeClick}
-            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl cursor-pointer active:scale-90 ${
-              isCurrentReelLiked
-                ? 'bg-[#FFF0F4]/95 text-[#E2556E] border-2 border-[#E2A9B8] ring-4 ring-[#E2556E]/25 scale-105'
-                : 'bg-black/55 hover:bg-black/75 text-white border border-white/60 hover:scale-110 backdrop-blur-xs'
-            }`}
-            title={isCurrentReelLiked ? 'You liked this reel ♡' : 'Tap to like this reel'}
-            aria-label={isCurrentReelLiked ? 'Liked reel' : 'Like this reel'}
-          >
-            <Heart
-              className={`w-5 h-5 sm:w-6 sm:h-6 transition-all duration-300 ${
-                isCurrentReelLiked
-                  ? 'text-[#E2556E] fill-[#E2556E] animate-heart-pop drop-shadow-sm'
-                  : 'text-white'
-              }`}
-              strokeWidth={isCurrentReelLiked ? 2 : 1.75}
-            />
-          </button>
-
-          <span
-            className={`text-[9px] font-bold tracking-wider uppercase drop-shadow-md select-none px-2 py-0.5 rounded-full ${
-              isCurrentReelLiked
-                ? 'bg-[#A64D68] text-white shadow-xs'
-                : 'bg-black/60 text-white/95 backdrop-blur-xs'
-            }`}
-          >
-            {isCurrentReelLiked ? 'Liked ♡' : 'Like'}
-          </span>
-        </div>
-
-        {/* Bottom Details Scrim Gradient Overlaid Directly on Reel */}
-        <div className="absolute bottom-0 inset-x-0 z-20 pt-20 pb-4 sm:pb-5 px-3.5 sm:px-4 text-left bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none">
-          <div className="pointer-events-auto space-y-1 pr-16 text-left flex flex-col items-start justify-end">
-            <h3 className="text-white font-serif font-semibold text-sm sm:text-base leading-snug drop-shadow-md line-clamp-1 text-left text-start">
-              {currentReel.title}
-            </h3>
-
-            <p className="font-handwriting text-xs sm:text-sm text-[#F8DCE5] leading-tight drop-shadow-xs text-left text-start">
-              “A little moment, saved just for you, Ekta ♡”
-            </p>
-
-            {currentReel.caption && (
-              <p className="font-letter italic text-[11px] sm:text-xs text-white/85 line-clamp-2 leading-tight drop-shadow-xs text-left text-start">
-                {currentReel.caption}
-              </p>
-            )}
-
-            {/* Mobile swipe hint */}
-            {activeReels.length > 1 && (
-              <div className="pt-0.5 flex items-center gap-1.5 text-[10px] text-white/60 font-sans tracking-wide text-left text-start">
-                <span>Swipe up for next memory</span>
-                <span className="animate-pulse">↑</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Desktop Side Navigation Buttons */}
-        {activeReels.length > 1 && (
-          <div className="hidden sm:flex flex-col items-center gap-2.5 absolute -right-14 top-1/2 -translate-y-1/2 z-30">
-            <button
-              type="button"
-              onClick={handlePrev}
-              className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 text-white/90 border border-white/20 backdrop-blur-md shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer"
-              title="Previous Reel (Swipe down or ↑ key)"
-              aria-label="Previous Reel"
-            >
-              <ChevronUp className="w-5 h-5" />
-            </button>
-
-            <div className="px-2 py-0.5 rounded-full bg-black/60 border border-white/15 text-[10px] font-mono text-white/80 backdrop-blur-md">
-              {currentIndex + 1}/{activeReels.length}
             </div>
 
             <button
               type="button"
-              onClick={handleNext}
-              className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 text-white/90 border border-white/20 backdrop-blur-md shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer"
-              title="Next Reel (Swipe up or ↓ key)"
-              aria-label="Next Reel"
+              onClick={handleClose}
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/40 hover:bg-black/60 text-white border border-white/20 backdrop-blur-md flex items-center justify-center transition-all cursor-pointer pointer-events-auto active:scale-90"
+              title="Close viewer"
+              aria-label="Close viewer"
             >
-              <ChevronDown className="w-5 h-5" />
+              <X className="w-3.5 h-3.5 text-white" />
             </button>
           </div>
-        )}
+        </div>
+
+        {/* =================================================================== */}
+        {/* BOTTOM OVERLAY: TITLE, CAPTION, DEDICATION & LIKE BUTTON           */}
+        {/* =================================================================== */}
+        <div className="relative z-30 pt-16 pb-3 sm:pb-4 px-3 sm:px-4 bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none">
+          {/* Custom Interactive Video Progress Bar with live feedback */}
+          {hasVideo && (
+            <div className="pointer-events-auto pb-2">
+              <CustomVideoProgressBar
+                currentTime={currentTime}
+                duration={duration}
+                buffered={buffered}
+                onSeek={(time) => {
+                  if (videoRef.current) {
+                    videoRef.current.currentTime = time;
+                    setCurrentTime(time);
+                  }
+                }}
+                isPlaying={isPlaying}
+                onTogglePlay={() => {
+                  if (!videoRef.current) return;
+                  if (isPlaying) {
+                    videoRef.current.pause();
+                  } else {
+                    romanticAudio.pauseForReel();
+                    videoRef.current.play();
+                  }
+                }}
+                isMuted={isMuted}
+                onToggleMute={() => {
+                  if (!videoRef.current) return;
+                  videoRef.current.muted = !videoRef.current.muted;
+                  setIsMuted(videoRef.current.muted);
+                }}
+                theme="dark"
+                showTimeText={true}
+                showPlayPause={true}
+                showMute={true}
+                className="bg-black/50 border-white/20"
+              />
+            </div>
+          )}
+
+          <div className="flex items-end justify-between gap-3">
+            {/* Left Column: Title, Dedication, Caption */}
+            <div className="flex-1 space-y-1 pointer-events-auto text-left">
+              <h3 className="font-heading font-serif font-bold text-sm sm:text-base text-white leading-snug drop-shadow-md line-clamp-1">
+                {currentReel.title}
+              </h3>
+
+              <p className="font-handwriting text-xs sm:text-sm text-[#F8DCE5] leading-tight drop-shadow-xs">
+                “A little moment, saved just for you, Ekta ♡”
+              </p>
+
+              {currentReel.caption && (
+                <p className="font-letter italic text-[11px] text-white/80 line-clamp-2 leading-relaxed drop-shadow-xs">
+                  {currentReel.caption}
+                </p>
+              )}
+
+              {/* Clean gesture hint */}
+              <div className="pt-0.5 flex items-center gap-1.5 text-[9.5px] text-white/60 font-sans">
+                <span>Swipe left / right to flip</span>
+                <span className="text-white/80 font-bold">⇄</span>
+              </div>
+            </div>
+
+            {/* Right Column: Interactive Heart Like Button */}
+            <div className="flex flex-col items-center gap-1 pointer-events-auto shrink-0 mb-1">
+              <div className="relative inline-flex items-center justify-center">
+                {/* Floating Mini Hearts */}
+                {floatingHearts.map((heart) => (
+                  <span
+                    key={heart.id}
+                    className="absolute pointer-events-none select-none text-sm z-40"
+                    style={{
+                      left: `calc(50% + ${heart.offsetX}px)`,
+                      bottom: '36px',
+                      animation: 'floatUpHeart 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+                    }}
+                    aria-hidden="true"
+                  >
+                    {heart.emoji}
+                  </span>
+                ))}
+
+                {/* Heart Button */}
+                <button
+                  type="button"
+                  onClick={handleLikeClick}
+                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl cursor-pointer active:scale-90 ${
+                    isCurrentReelLiked
+                      ? 'bg-[#FFF0F4]/95 text-[#E2556E] border border-white/50 ring-2 ring-[#E2556E]/40 scale-105'
+                      : 'bg-black/50 hover:bg-black/70 text-white border border-white/30 hover:scale-105 backdrop-blur-md'
+                  }`}
+                  title={isCurrentReelLiked ? 'You liked this little memory ♡' : 'Tap to like this reel'}
+                  aria-label={isCurrentReelLiked ? 'Liked reel' : 'Like this reel'}
+                >
+                  <Heart
+                    className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
+                      isCurrentReelLiked
+                        ? 'text-[#E2556E] fill-[#E2556E] animate-heart-pop drop-shadow-xs'
+                        : 'text-white fill-none'
+                    }`}
+                    strokeWidth={isCurrentReelLiked ? 2 : 1.75}
+                  />
+                </button>
+              </div>
+
+              <span className="text-[9px] font-sans font-semibold text-white/85 drop-shadow-xs">
+                {isCurrentReelLiked ? 'Liked ♡' : 'Like'}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
+
+  return createPortal(modalJSX, document.body);
 };

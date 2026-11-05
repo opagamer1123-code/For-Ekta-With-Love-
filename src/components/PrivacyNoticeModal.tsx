@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ShieldCheck, Database, Lock, Mail } from 'lucide-react';
+import { X, ShieldCheck, Database, Lock, Heart } from 'lucide-react';
 
 interface PrivacyNoticeModalProps {
   isOpen: boolean;
@@ -62,13 +62,13 @@ export const PrivacyNoticeModal: React.FC<PrivacyNoticeModalProps> = ({ isOpen, 
           </div>
 
           <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-[#FFF8ED] border border-[#F8DCE5]">
-            <Mail className="w-4 h-4 text-[#A64D68] shrink-0 mt-0.5" />
+            <Heart className="w-4 h-4 text-[#A64D68] shrink-0 mt-0.5" />
             <div>
               <strong className="block text-[#5A3545] font-semibold mb-0.5">
-                Firebase Trigger Email Integration
+                Private Keepsake Vault
               </strong>
               <span>
-                An email notification containing Ekta's chosen response and handwritten answer is queued in Firestore and dispatched to the website author via Trigger Email and SMTP.
+                Your responses, notes, and answers are protected with utmost care and kept strictly confidential as a personal digital keepsake made just for you.
               </span>
             </div>
           </div>

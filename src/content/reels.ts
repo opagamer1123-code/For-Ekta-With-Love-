@@ -95,4 +95,13 @@ export const reelsData: ReelItem[] = [
     isFeatured: true,
     size: "featured",
   },
+  {
+    id: 10,
+    title: "Plan A OR Plan B",
+    caption: "“Plan A: Marry her & get old with her ♡ Plan B: Adopt a daughter with her name & love her for the rest of my life”",
+    videoUrl: "/assets/aistudio/SaveClip.App_AQMy3-T67BwfZDlSmXFHOm0XMcNGHJ5EzPvoKOfOadJrANEE1udYpS9sGjVGCV0edA72U5IMWXorTxz7ZcaBH4toSX6c62VphyVnlcg_d8579551.mp4",
+    thumbnailUrl: "/assets/aistudio/reel_10_poster.jpg",
+    category: "Promises",
+    size: "tall",
+  },
 ];

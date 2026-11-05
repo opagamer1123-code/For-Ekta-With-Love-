@@ -28,6 +28,7 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '1mb' }));
+app.use('/assets', express.static(path.resolve(__dirname, 'public/assets')));
 
 // -----------------------------------------------------------------------------
 // Firebase Firestore Client Initialization
@@ -140,7 +141,7 @@ export interface RecentDispatchRecord {
 const inMemorySubmissions: RecentDispatchRecord[] = [];
 
 const MARRIAGE_QUESTION_TEXT =
-  'Will you marry me in every universe, every multiverse, and every life we could ever live? If our souls found each other in a million different worlds, would you still choose me?';
+  'Ekta, if the universe gave me a thousand different lives, I would still hope to find you in every one of them. In every universe, every multiverse, and every lifetime, I would want my story to lead back to you. So, if our souls found each other in a million different worlds, would you still choose me? Would you let me be the person who stands beside you, loves you, and grows with you in every life? Will you marry me, Ekta — in this universe, and in every universe that may ever exist? ♡';
 
 function escapeHtml(str: string): string {
   return str
@@ -485,20 +486,23 @@ async function recordProposalInFirestore(payload: ProposalSubmissionPayload): Pr
 interface ReelLikePayload {
   reelId: number;
   reelTitle: string;
-  likedAt: string;
+  likedAt?: string;
+  action?: 'like' | 'unlike';
+  liked?: boolean;
 }
 
 const notifiedReelLikesCache = new Set<number>();
-const inMemoryReelLikes = new Map<number, { reelId: number; reelTitle: string; likedAt: string; hasNotified: boolean }>();
+const inMemoryReelLikes = new Map<number, { reelId: number; reelTitle: string; likedAt?: string; hasNotified: boolean; isLiked: boolean }>();
 
 function generateReelLikeEmailContent(payload: ReelLikePayload) {
   const reelNumberStr = `REEL ${String(payload.reelId).padStart(2, '0')}`;
-  const formattedDateIST = new Date(payload.likedAt).toLocaleString('en-US', {
+  const timestamp = payload.likedAt || new Date().toISOString();
+  const formattedDateIST = new Date(timestamp).toLocaleString('en-US', {
     timeZone: 'Asia/Kolkata',
     dateStyle: 'full',
     timeStyle: 'long',
   });
-  const formattedDateUTC = new Date(payload.likedAt).toUTCString();
+  const formattedDateUTC = new Date(timestamp).toUTCString();
   const subject = 'Ekta liked a reel! ❤️';
 
   const textContent = `Ekta just liked one of your reels! ♡
@@ -566,20 +570,59 @@ async function recordReelLikeInFirestore(payload: ReelLikePayload): Promise<{
   saved: boolean;
   emailQueued: boolean;
   alreadyNotified: boolean;
+  isLiked: boolean;
   mailDocId?: string;
 }> {
   const config = getEmailConfig();
   const reelDocId = `reel_${payload.reelId}`;
+  const isUnlike = payload.action === 'unlike' || payload.liked === false;
 
-  // Check in-memory deduplication first
+  // 1. Handle Unlike action: update state, do NOT send email
+  if (isUnlike) {
+    if (db) {
+      try {
+        const likeDocRef = doc(db, 'reel_likes', reelDocId);
+        // Strictly comply with live security rule: hasAll([reelId, reelTitle, likedAt]) & hasOnly([reelId, reelTitle, likedAt, hasNotified, updatedAt])
+        await setDoc(
+          likeDocRef,
+          {
+            reelId: payload.reelId,
+            reelTitle: payload.reelTitle,
+            likedAt: 'UNLIKED',
+            hasNotified: true,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (err: any) {
+        console.error('Firestore reel unlike error:', err?.message || err);
+      }
+    }
+
+    const prevMem = inMemoryReelLikes.get(payload.reelId);
+    inMemoryReelLikes.set(payload.reelId, {
+      reelId: payload.reelId,
+      reelTitle: payload.reelTitle,
+      likedAt: payload.likedAt,
+      hasNotified: prevMem ? prevMem.hasNotified : notifiedReelLikesCache.has(payload.reelId),
+      isLiked: false,
+    });
+
+    return {
+      saved: true,
+      emailQueued: false,
+      alreadyNotified: true,
+      isLiked: false,
+    };
+  }
+
+  // 2. Handle Like action: send email ONLY on first-ever like
   const alreadyNotifiedInMemory = notifiedReelLikesCache.has(payload.reelId);
-
   let alreadyNotifiedInDb = false;
   let saved = false;
   let emailQueued = false;
   let mailDocId: string | undefined;
 
-  // 1. Check & Persist in Firestore
   if (db) {
     try {
       const likeDocRef = doc(db, 'reel_likes', reelDocId);
@@ -628,13 +671,13 @@ async function recordReelLikeInFirestore(payload: ReelLikePayload): Promise<{
         }
       }
 
-      // Record like in Firestore reel_likes
+      // Record like in Firestore reel_likes with strictly permitted schema
       await setDoc(
         likeDocRef,
         {
           reelId: payload.reelId,
           reelTitle: payload.reelTitle,
-          likedAt: payload.likedAt,
+          likedAt: payload.likedAt || new Date().toISOString(),
           hasNotified: true,
           updatedAt: new Date().toISOString(),
         },
@@ -666,12 +709,13 @@ async function recordReelLikeInFirestore(payload: ReelLikePayload): Promise<{
     }
   }
 
-  // Update in-memory cache
+  // Update in-memory cache with isLiked: true
   inMemoryReelLikes.set(payload.reelId, {
     reelId: payload.reelId,
     reelTitle: payload.reelTitle,
-    likedAt: payload.likedAt,
+    likedAt: payload.likedAt || new Date().toISOString(),
     hasNotified: true,
+    isLiked: true,
   });
   notifiedReelLikesCache.add(payload.reelId);
 
@@ -679,6 +723,7 @@ async function recordReelLikeInFirestore(payload: ReelLikePayload): Promise<{
     saved: saved || Boolean(db),
     emailQueued,
     alreadyNotified: alreadyNotifiedInMemory || alreadyNotifiedInDb,
+    isLiked: true,
     mailDocId,
   };
 }
@@ -843,7 +888,7 @@ app.post('/api/proposal/submit', (req: Request, res: Response) => {
 // Interactive "Like This Reel" Endpoints
 // -----------------------------------------------------------------------------
 
-// Record a Reel Like & Trigger Email Notification
+// Record a Reel Like / Unlike & Trigger Email Notification (first-time only)
 app.post('/api/reels/like', async (req: Request, res: Response) => {
   const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
 
@@ -855,7 +900,7 @@ app.post('/api/reels/like', async (req: Request, res: Response) => {
   }
 
   try {
-    const { reelId, reelTitle, likedAt } = req.body;
+    const { reelId, reelTitle, likedAt, action, liked } = req.body;
     const numReelId = parseInt(reelId, 10);
 
     if (isNaN(numReelId) || numReelId < 1 || numReelId > 50) {
@@ -867,29 +912,33 @@ app.post('/api/reels/like', async (req: Request, res: Response) => {
 
     const title = typeof reelTitle === 'string' && reelTitle.trim() ? reelTitle.trim() : `Reel ${numReelId}`;
     const timestamp = typeof likedAt === 'string' && likedAt.trim() ? likedAt.trim() : new Date().toISOString();
+    const isUnlikeAction = action === 'unlike' || liked === false;
 
     const result = await recordReelLikeInFirestore({
       reelId: numReelId,
       reelTitle: title,
       likedAt: timestamp,
+      action: isUnlikeAction ? 'unlike' : 'like',
+      liked: !isUnlikeAction,
     });
 
     return res.status(200).json({
       success: true,
       reelId: numReelId,
-      liked: true,
+      liked: result.isLiked,
       alreadyNotified: result.alreadyNotified,
       emailQueued: result.emailQueued,
       savedInFirestore: result.saved,
-      message: 'Reel like recorded and notification processed ♡',
+      message: result.isLiked
+        ? 'Reel like recorded and notification processed ♡'
+        : 'Reel unlike recorded successfully ♡',
     });
   } catch (err: unknown) {
-    console.error('Error processing reel like:', err);
-    // Graceful response so frontend like remains active even on transient server error
+    console.error('Error processing reel like/unlike:', err);
     return res.status(200).json({
       success: true,
-      liked: true,
-      warning: 'Recorded with fallback handling',
+      liked: req.body.action !== 'unlike' && req.body.liked !== false,
+      warning: 'Processed with fallback handling',
     });
   }
 });
@@ -899,8 +948,10 @@ app.get('/api/reels/likes', async (_req: Request, res: Response) => {
   try {
     const likesMap: Record<number, boolean> = {};
 
-    inMemoryReelLikes.forEach((_val, key) => {
-      likesMap[key] = true;
+    inMemoryReelLikes.forEach((val, key) => {
+      if (val.isLiked !== false) {
+        likesMap[key] = true;
+      }
     });
 
     if (db) {
@@ -908,14 +959,34 @@ app.get('/api/reels/likes', async (_req: Request, res: Response) => {
         const snap = await getDocs(collection(db, 'reel_likes'));
         snap.forEach((d) => {
           const data = d.data();
-          if (data && typeof data.reelId === 'number') {
-            likesMap[data.reelId] = true;
+          const id = typeof data.reelId === 'number' ? data.reelId : parseInt(d.id.replace('reel_', ''), 10);
+          if (!isNaN(id)) {
+            if (data.hasNotified) {
+              notifiedReelLikesCache.add(id);
+            }
+            const isUnliked = data.likedAt === 'UNLIKED' || data.likedAt === '' || data.isLiked === false;
+            const isLiked = !isUnliked && (Boolean(data.likedAt) || data.isLiked === true);
+
+            if (isLiked) {
+              likesMap[id] = true;
+            } else {
+              delete likesMap[id];
+            }
           }
         });
       } catch (err) {
         console.warn('Could not read reel_likes collection from Firestore:', err);
       }
     }
+
+    // In-memory overrides if user interacted during current server session
+    inMemoryReelLikes.forEach((val, key) => {
+      if (val.isLiked) {
+        likesMap[key] = true;
+      } else {
+        delete likesMap[key];
+      }
+    });
 
     const likedReelIds = Object.keys(likesMap).map(Number);
 

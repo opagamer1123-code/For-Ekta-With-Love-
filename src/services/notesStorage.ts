@@ -108,7 +108,20 @@ export function loadLittleThings(): LittleThingCard[] {
     const raw = localStorage.getItem(LITTLE_THINGS_STORAGE_KEY);
     if (!raw) return proposalConfig.littleThings.cards;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : proposalConfig.littleThings.cards;
+    if (Array.isArray(parsed) && parsed.length >= 14 && parsed[0]?.iconType === 'eyes') {
+      return parsed.map((item, idx) => {
+        const configItem = proposalConfig.littleThings.cards[idx];
+        return {
+          ...configItem,
+          ...item,
+          videoUrl: item.videoUrl || configItem?.videoUrl,
+          videoPoster: item.videoPoster || configItem?.videoPoster,
+          videoTitle: item.videoTitle || configItem?.videoTitle,
+          videoCaption: item.videoCaption || configItem?.videoCaption,
+        };
+      });
+    }
+    return proposalConfig.littleThings.cards;
   } catch {
     return proposalConfig.littleThings.cards;
   }

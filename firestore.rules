@@ -49,11 +49,13 @@ service cloud.firestore {
 
     function isValidReelLike(data) {
       return data.keys().hasAll(['reelId', 'reelTitle', 'likedAt']) &&
-        data.keys().hasOnly(['reelId', 'reelTitle', 'likedAt', 'hasNotified', 'updatedAt']) &&
+        data.keys().hasOnly(['reelId', 'reelTitle', 'likedAt', 'hasNotified', 'updatedAt', 'isLiked', 'unlikedAt']) &&
         (data.reelId is int || data.reelId is number) &&
         data.reelTitle is string && data.reelTitle.size() <= 256 &&
         data.likedAt is string && data.likedAt.size() <= 64 &&
         (!('hasNotified' in data) || data.hasNotified is bool) &&
+        (!('isLiked' in data) || data.isLiked is bool) &&
+        (!('unlikedAt' in data) || (data.unlikedAt is string && data.unlikedAt.size() <= 64)) &&
         (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
     }
 

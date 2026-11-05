@@ -10,13 +10,11 @@ import {
   AlertTriangle,
   Lock,
   Loader2,
+  Send,
   Feather,
 } from 'lucide-react';
 import { proposalConfig } from '../config/proposalConfig';
 import { HeartConfettiCelebration } from './HeartConfettiCelebration';
-import { OneMoreThingSection } from './OneMoreThingSection';
-import { CurvedPaperSheet } from './CurvedPaperSheet';
-import { paperFlipAudio } from '../services/paperSound';
 
 type ProposalAnswer = 'yes' | 'time' | 'friend' | null;
 
@@ -36,9 +34,6 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
   const [selectedAnswer, setSelectedAnswer] = useState<ProposalAnswer>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sessionSubmissionId] = useState(
-    () => `sub_ekta_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
-  );
   const [submissionStatus, setSubmissionStatus] = useState<{
     saved: boolean;
     message: string | null;
@@ -49,23 +44,12 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
     error: null,
   });
 
-  const [activeSubPage, setActiveSubPage] = useState<'proposal' | 'one-more-thing'>('proposal');
-  const [isTurningPage, setIsTurningPage] = useState(false);
-  const [turnDirection, setTurnDirection] = useState<'next' | 'prev'>('next');
-
-  const handleOpenOneMoreThing = () => {
-    if (isTurningPage) return;
-    setIsTurningPage(true);
-    setTurnDirection('next');
-    paperFlipAudio.play('next');
-  };
-
-  const handleReturnToProposal = () => {
-    if (isTurningPage) return;
-    setIsTurningPage(true);
-    setTurnDirection('prev');
-    paperFlipAudio.play('prev');
-  };
+  // State for the follow-up marriage / universe question (on YES)
+  const [marriageAnswer, setMarriageAnswer] = useState('');
+  const [isSendingMarriage, setIsSendingMarriage] = useState(false);
+  const [marriageSuccess, setMarriageSuccess] = useState(false);
+  const [marriageError, setMarriageError] = useState<string | null>(null);
+  const [submittedAnswerText, setSubmittedAnswerText] = useState('');
 
   const handleSelectAnswer = async (ans: ProposalAnswer) => {
     if (!ans) return;
@@ -79,14 +63,12 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
     });
 
     if (ans === 'yes') {
-      // 1. YES: Show existing YES response message, shower hearts, and show "There's something more I want to ask you ♡" button.
-      // Email is sent after she answers the marriage question on the next page.
+      // For YES: Launch celebration confetti, show the universe/marriage question with text box
       setShowCelebration(true);
       return;
     }
 
-    // 2 & 3. MORE TIME or NO: Immediately record in Firestore and queue email notification
-    // Confetti explosion is strictly disabled for non-YES responses
+    // For TIME or FRIEND: Record directly in Firestore & email notification
     setShowCelebration(false);
     setIsSubmitting(true);
     const answerLabel = proposalConfig.proposal.options[ans].label;
@@ -105,7 +87,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
       if (response.ok && result.success) {
         setSubmissionStatus({
           saved: true,
-          message: 'Your response has been saved in Firebase and queued for notification ♡',
+          message: 'Your response has been saved with love ♡',
           error: null,
         });
       } else {
@@ -117,7 +99,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
             'Unable to process response at this moment. Please click retry below.',
         });
       }
-    } catch (apiErr: unknown) {
+    } catch {
       setSubmissionStatus({
         saved: false,
         message: null,
@@ -129,6 +111,50 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
     }
   };
 
+  const handleSendMarriageAnswer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSendingMarriage) return;
+
+    setMarriageError(null);
+    const trimmed = marriageAnswer.trim();
+
+    if (!trimmed) {
+      setMarriageError('Please write a little note or answer from your heart before sending. ♡');
+      return;
+    }
+
+    setIsSendingMarriage(true);
+
+    try {
+      const response = await fetch('/api/proposal/submit-marriage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposalChoice: proposalConfig.proposal.options.yes.label,
+          marriageAnswer: trimmed,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setMarriageSuccess(true);
+        setSubmittedAnswerText(trimmed);
+        setShowCelebration(true);
+      } else {
+        setMarriageError(
+          result.error || 'Unable to send your answer at this moment. Please try again. ♡'
+        );
+      }
+    } catch {
+      setMarriageError(
+        'A connection error occurred while sending your answer. Please check your connection and retry. ♡'
+      );
+    } finally {
+      setIsSendingMarriage(false);
+    }
+  };
+
   const handleResetAnswer = () => {
     setSelectedAnswer(null);
     setShowCelebration(false);
@@ -137,14 +163,26 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
       message: null,
       error: null,
     });
+    setMarriageSuccess(false);
+    setMarriageError(null);
   };
 
-  const currentChoiceLabel = selectedAnswer
-    ? proposalConfig.proposal.options[selectedAnswer].label
-    : "Yes, let's give our story a beautiful beginning ❤️";
+  return (
+    <section
+      id="proposal-section"
+      className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto relative z-20 will-change-transform"
+      style={{ willChange: 'transform', transform: 'translateZ(0)' }}
+      aria-label="The Final Proposal for Ekta"
+    >
+      {/* Confetti Explosion Celebration Overlay — Strictly ONLY for YES selection */}
+      {showCelebration && selectedAnswer === 'yes' && (
+        <HeartConfettiCelebration
+          onDismiss={() => setShowCelebration(false)}
+          title="She Said Yes! ♡"
+          subtitle="A shower of love for Ekta ✨"
+        />
+      )}
 
-  const renderProposalContent = () => (
-    <>
       {/* Soft Rose-to-Cream Glow and Central Heart Illustration */}
       <div className="text-center mb-10">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-tr from-[#F8DCE5] to-[#FFF5F8] border border-[#E2A9B8] shadow-md shadow-[#F8DCE5]/50 mb-5 relative group">
@@ -163,97 +201,165 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
         <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[#F8DCE5]/50 to-transparent rounded-bl-full pointer-events-none" />
 
         <div className="relative z-10 text-center">
-          {/* Main Question for Ekta */}
-          <h2 className="font-heading text-2xl sm:text-3xl md:text-4xl text-[#5A3545] font-semibold leading-relaxed sm:leading-relaxed mb-8">
-            "{proposalConfig.proposal.question}"
-          </h2>
+          {/* Main Question for Ekta (Shown before selecting an option) */}
+          {!selectedAnswer && (
+            <>
+              <h2 className="font-heading text-2xl sm:text-3xl md:text-4xl text-[#5A3545] font-semibold leading-relaxed sm:leading-relaxed mb-8">
+                "{proposalConfig.proposal.question}"
+              </h2>
 
-          {/* Three Clearly Visible, Equally Accessible Buttons */}
-          {!selectedAnswer ? (
-            <div className="space-y-3.5 max-w-md mx-auto">
-              {/* Option 1: Yes */}
-              <button
-                onClick={() => handleSelectAnswer('yes')}
-                disabled={isSubmitting}
-                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#A64D68] to-[#8E3E56] hover:from-[#8E3E56] hover:to-[#5A3545] text-white font-medium text-base sm:text-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-3 group focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 focus-visible:outline-hidden disabled:opacity-60 cursor-pointer"
-              >
-                <Sparkles className="w-5 h-5 text-[#F8DCE5]" />
-                <span>{proposalConfig.proposal.options.yes.label}</span>
-                <Heart className="w-5 h-5 text-white fill-white/80 group-hover:scale-110 transition-transform" />
-              </button>
+              {/* Three Clearly Visible, Accessible Buttons */}
+              <div className="space-y-3.5 max-w-md mx-auto">
+                {/* Option 1: Yes */}
+                <button
+                  onClick={() => handleSelectAnswer('yes')}
+                  disabled={isSubmitting}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#A64D68] to-[#8E3E56] hover:from-[#8E3E56] hover:to-[#5A3545] text-white font-medium text-base sm:text-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-3 group focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 focus-visible:outline-hidden disabled:opacity-60 cursor-pointer"
+                >
+                  <Sparkles className="w-5 h-5 text-[#F8DCE5]" />
+                  <span>{proposalConfig.proposal.options.yes.label}</span>
+                  <Heart className="w-5 h-5 text-white fill-white/80 group-hover:scale-110 transition-transform" />
+                </button>
 
-              {/* Option 2: Need Time */}
-              <button
-                onClick={() => handleSelectAnswer('time')}
-                disabled={isSubmitting}
-                className="w-full py-3.5 px-6 rounded-2xl bg-[#FFF8ED] hover:bg-[#F8DCE5]/50 border border-[#F8DCE5] text-[#5A3545] font-medium text-base shadow-2xs hover:shadow-xs transition-all duration-200 flex items-center justify-center gap-2.5 focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 focus-visible:outline-hidden disabled:opacity-60 cursor-pointer"
-              >
-                <Clock className="w-4 h-4 text-[#A64D68]" />
-                <span>{proposalConfig.proposal.options.time.label}</span>
-              </button>
+                {/* Option 2: Need Time */}
+                <button
+                  onClick={() => handleSelectAnswer('time')}
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 px-6 rounded-2xl bg-[#FFF8ED] hover:bg-[#F8DCE5]/50 border border-[#F8DCE5] text-[#5A3545] font-medium text-base shadow-2xs hover:shadow-xs transition-all duration-200 flex items-center justify-center gap-2.5 focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 focus-visible:outline-hidden disabled:opacity-60 cursor-pointer"
+                >
+                  <Clock className="w-4 h-4 text-[#A64D68]" />
+                  <span>{proposalConfig.proposal.options.time.label}</span>
+                </button>
 
-              {/* Option 3: Friendship */}
-              <button
-                onClick={() => handleSelectAnswer('friend')}
-                disabled={isSubmitting}
-                className="w-full py-3.5 px-6 rounded-2xl bg-[#FFF8ED] hover:bg-[#F8DCE5]/50 border border-[#F8DCE5] text-[#5A3545] font-medium text-base shadow-2xs hover:shadow-xs transition-all duration-200 flex items-center justify-center gap-2.5 focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 focus-visible:outline-hidden disabled:opacity-60 cursor-pointer"
-              >
-                <Smile className="w-4 h-4 text-[#A64D68]" />
-                <span>{proposalConfig.proposal.options.friend.label}</span>
-              </button>
-            </div>
-          ) : (
-            /* Selected Answer Response Card */
-            <div className="py-4 animate-in fade-in zoom-in-95 duration-500">
-              {/* Submission Progress / Status Feedback Banner (For MORE TIME / NO) */}
-              {selectedAnswer !== 'yes' && (
-                <div className="mb-6 max-w-md mx-auto">
-                  {isSubmitting ? (
-                    <div className="p-3.5 rounded-2xl bg-[#FFF0F4] border border-[#F8DCE5] text-xs text-[#A64D68] flex items-center justify-center gap-2 shadow-2xs">
-                      <Loader2 className="w-4 h-4 animate-spin text-[#A64D68]" />
-                      <span className="font-medium">Saving your response in Firebase with love...</span>
-                    </div>
-                  ) : submissionStatus.saved ? (
-                    <div className="p-3.5 rounded-2xl bg-[#FFF8ED] border border-[#F8DCE5] text-xs text-[#5A3545] flex items-center justify-center gap-2 shadow-2xs">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span className="font-medium text-emerald-800">
-                        {submissionStatus.message || 'Your response is safely recorded in Firebase Firestore ♡'}
-                      </span>
-                    </div>
-                  ) : submissionStatus.error ? (
-                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between gap-2 shadow-2xs">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>{submissionStatus.error}</span>
-                      </div>
-                      <button
-                        onClick={() => handleSelectAnswer(selectedAnswer)}
-                        disabled={isSubmitting}
-                        className="px-2.5 py-1 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold cursor-pointer shrink-0 transition-colors"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  ) : null}
+                {/* Option 3: Friendship */}
+                <button
+                  onClick={() => handleSelectAnswer('friend')}
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 px-6 rounded-2xl bg-[#FFF8ED] hover:bg-[#F8DCE5]/50 border border-[#F8DCE5] text-[#5A3545] font-medium text-base shadow-2xs hover:shadow-xs transition-all duration-200 flex items-center justify-center gap-2.5 focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 focus-visible:outline-hidden disabled:opacity-60 cursor-pointer"
+                >
+                  <Smile className="w-4 h-4 text-[#A64D68]" />
+                  <span>{proposalConfig.proposal.options.friend.label}</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* =================================================================== */}
+          {/* AFTER TAPPING YES: Display the Heartfelt Question + Textbox + Email */}
+          {/* =================================================================== */}
+          {selectedAnswer === 'yes' && (
+            <div className="py-2 animate-in fade-in zoom-in-95 duration-500 text-left">
+              {/* Badge */}
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FFF0F4] border border-[#E2A9B8] text-[#A64D68] text-xs font-serif shadow-2xs">
+                  <Sparkles className="w-3.5 h-3.5 text-[#C7A66A]" />
+                  <span>You said Yes · A Question Across Every Universe ♡</span>
                 </div>
-              )}
+              </div>
 
-              {/* Response for YES */}
-              {selectedAnswer === 'yes' && (
-                <div className="bg-[#FFF5F8] p-6 sm:p-8 rounded-2xl border border-[#E2A9B8] space-y-4">
-                  <div className="w-14 h-14 rounded-full bg-[#A64D68] text-white flex items-center justify-center mx-auto shadow-md">
-                    <Heart className="w-7 h-7 fill-white" />
-                  </div>
-                  <h3 className="font-heading text-2xl sm:text-3xl text-[#A64D68] font-bold">
-                    {proposalConfig.proposal.options.yes.responseTitle}
-                  </h3>
-                  <p className="font-letter text-lg sm:text-xl text-[#5A3545] leading-relaxed max-w-lg mx-auto">
-                    {proposalConfig.proposal.options.yes.responseMessage}
+              {/* The Dedicated Universe Question */}
+              <div className="bg-gradient-to-b from-[#FFFDF9] to-[#FFF5F8] p-6 sm:p-8 rounded-2xl border border-[#F8DCE5] shadow-xs space-y-4 mb-6">
+                <p className="font-letter text-base sm:text-lg text-[#5A3545] leading-relaxed">
+                  Ekta, if the universe gave me a thousand different lives, I would still hope to find you in every one of them. In every universe, every multiverse, and every lifetime, I would want my story to lead back to you.
+                </p>
+
+                <p className="font-letter text-base sm:text-lg text-[#5A3545] leading-relaxed">
+                  So, if our souls found each other in a million different worlds, would you still choose me? Would you let me be the person who stands beside you, loves you, and grows with you in every life?
+                </p>
+
+                <div className="pt-2 border-t border-[#F8DCE5]/70">
+                  <p className="font-heading font-serif text-lg sm:text-xl md:text-2xl text-[#A64D68] font-bold text-center leading-snug">
+                    Will you marry me, Ekta — in this universe, and in every universe that may ever exist? ♡
                   </p>
-                  <div className="pt-2">
+                </div>
+              </div>
+
+              {/* If answer has not been sent yet: Show Textbox and Send Button */}
+              {!marriageSuccess ? (
+                <form onSubmit={handleSendMarriageAnswer} className="space-y-4 max-w-xl mx-auto">
+                  <div>
+                    <label
+                      htmlFor="ekta-marriage-answer"
+                      className="block text-xs font-serif font-medium text-[#7A5B64] mb-2 text-center"
+                    >
+                      ♡ Your words, your thoughts, your heart:
+                    </label>
+                    <textarea
+                      id="ekta-marriage-answer"
+                      value={marriageAnswer}
+                      onChange={(e) => setMarriageAnswer(e.target.value)}
+                      placeholder="Write your answer here, from the bottom of your heart... ♡"
+                      rows={5}
+                      disabled={isSendingMarriage}
+                      className="w-full px-4 py-3.5 rounded-2xl bg-[#FFFDF8] border-2 border-[#E2A9B8] focus:border-[#A64D68] focus:ring-3 focus:ring-[#A64D68]/20 focus:outline-hidden text-sm sm:text-base text-[#4A1D2B] placeholder:text-[#B3929C] transition-all resize-y shadow-inner font-sans leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Validation or API Error Banner */}
+                  {marriageError && (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{marriageError}</span>
+                    </div>
+                  )}
+
+                  {/* Send Answer Button */}
+                  <div className="pt-2 text-center space-y-3">
                     <button
+                      type="submit"
+                      disabled={isSendingMarriage}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 min-h-[48px] px-8 py-3 rounded-full bg-gradient-to-r from-[#A64D68] via-[#8E3E56] to-[#752E43] hover:from-[#933D56] hover:to-[#5A2335] text-white font-medium text-sm sm:text-base shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 cursor-pointer focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 focus-visible:outline-hidden"
+                    >
+                      {isSendingMarriage ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-white" />
+                          <span>Sending your answer with all my love...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 text-[#F8DCE5]" />
+                          <span>Send My Answer to You ♡</span>
+                          <Sparkles className="w-4 h-4 text-[#F8DCE5]" />
+                        </>
+                      )}
+                    </button>
+
+                    <p className="text-[11px] text-[#9A817B] font-letter italic">
+                      Your answer will be sealed and kept safely in your story's memories forever ♡
+                    </p>
+                  </div>
+                </form>
+              ) : (
+                /* Success Confirmation & Keepsake Card */
+                <div className="space-y-5 animate-in fade-in duration-500 max-w-xl mx-auto">
+                  <div className="p-4 rounded-2xl bg-[#FFF8ED] border border-[#F8DCE5] text-center shadow-xs">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-2">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-heading font-serif text-lg text-[#5A3545] font-semibold">
+                      Your answer has been preserved with love ♡
+                    </h4>
+                    <p className="text-xs text-[#7A5B64] font-letter mt-1">
+                      Your heartfelt words have been sealed and kept close to his heart forever.
+                    </p>
+                  </div>
+
+                  {/* Display What She Wrote */}
+                  <div className="bg-[#FFFDF9] p-5 rounded-2xl border-2 border-dashed border-[#E2A9B8] relative">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-[#A64D68] block mb-2 font-serif">
+                      Your Message to Him:
+                    </span>
+                    <blockquote className="font-letter text-base sm:text-lg text-[#4A1D2B] italic leading-relaxed whitespace-pre-wrap">
+                      "{submittedAnswerText}"
+                    </blockquote>
+                  </div>
+
+                  {/* Shower Hearts Again Trigger */}
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
                       onClick={() => setShowCelebration(true)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#A64D68] hover:bg-[#8E3E56] text-white text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#A64D68]"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#A64D68] hover:bg-[#8E3E56] text-white text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer"
                     >
                       <Sparkles className="w-4 h-4 text-[#F8DCE5]" aria-hidden="true" />
                       <span>Shower Hearts Again ♡</span>
@@ -262,9 +368,59 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
                 </div>
               )}
 
+              {/* Return to options */}
+              <div className="mt-8 pt-4 border-t border-[#F8DCE5]/70 text-center">
+                <button
+                  type="button"
+                  onClick={handleResetAnswer}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium text-[#A64D68] bg-[#FFF8ED] border border-[#F8DCE5] hover:bg-[#F8DCE5]/50 transition-all cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>← Return to initial question</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================== */}
+          {/* RESPONSES FOR TIME OR FRIENDSHIP                                    */}
+          {/* =================================================================== */}
+          {selectedAnswer && selectedAnswer !== 'yes' && (
+            <div className="py-4 animate-in fade-in zoom-in-95 duration-500">
+              {/* Submission Progress / Status Feedback Banner */}
+              <div className="mb-6 max-w-md mx-auto">
+                {isSubmitting ? (
+                  <div className="p-3.5 rounded-2xl bg-[#FFF0F4] border border-[#F8DCE5] text-xs text-[#A64D68] flex items-center justify-center gap-2 shadow-2xs">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#A64D68]" />
+                    <span className="font-medium">Recording your answer with love...</span>
+                  </div>
+                ) : submissionStatus.saved ? (
+                  <div className="p-3.5 rounded-2xl bg-[#FFF8ED] border border-[#F8DCE5] text-xs text-[#5A3545] flex items-center justify-center gap-2 shadow-2xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-medium text-emerald-800">
+                      {submissionStatus.message || 'Your response is safely recorded with love ♡'}
+                    </span>
+                  </div>
+                ) : submissionStatus.error ? (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{submissionStatus.error}</span>
+                    </div>
+                    <button
+                      onClick={() => handleSelectAnswer(selectedAnswer)}
+                      disabled={isSubmitting}
+                      className="px-2.5 py-1 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold cursor-pointer shrink-0 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
               {/* Response for TIME */}
               {selectedAnswer === 'time' && (
-                <div className="bg-[#FFF8ED] p-6 sm:p-8 rounded-2xl border border-[#F8DCE5] space-y-4">
+                <div className="bg-[#FFF8ED] p-6 sm:p-8 rounded-2xl border border-[#F8DCE5] space-y-4 text-center">
                   <div className="w-14 h-14 rounded-full bg-[#F8DCE5] text-[#A64D68] flex items-center justify-center mx-auto shadow-sm">
                     <Clock className="w-6 h-6" />
                   </div>
@@ -279,7 +435,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
 
               {/* Response for FRIENDSHIP */}
               {selectedAnswer === 'friend' && (
-                <div className="bg-[#FFF8ED] p-6 sm:p-8 rounded-2xl border border-[#F8DCE5] space-y-4">
+                <div className="bg-[#FFF8ED] p-6 sm:p-8 rounded-2xl border border-[#F8DCE5] space-y-4 text-center">
                   <div className="w-14 h-14 rounded-full bg-[#F8DCE5] text-[#A64D68] flex items-center justify-center mx-auto shadow-sm">
                     <Smile className="w-6 h-6" />
                   </div>
@@ -292,23 +448,8 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
                 </div>
               )}
 
-              {/* Button to proceed to "One More Thing" follow-up page — ONLY FOR YES */}
-              {selectedAnswer === 'yes' && (
-                <div className="mt-8 pt-6 border-t border-[#F8DCE5]/70 space-y-3">
-                  <button
-                    type="button"
-                    onClick={handleOpenOneMoreThing}
-                    className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#A64D68] via-[#94425A] to-[#8E3E56] hover:from-[#8E3E56] hover:to-[#5A3545] text-white font-medium text-base sm:text-lg shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-3 cursor-pointer group focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-[#A64D68]/40"
-                  >
-                    <Feather className="w-5 h-5 text-[#F8DCE5]" />
-                    <span>There's something more I want to ask you ♡</span>
-                    <Sparkles className="w-5 h-5 text-[#F8DCE5] group-hover:rotate-12 transition-transform" />
-                  </button>
-                </div>
-              )}
-
               {/* Back to options button */}
-              <div className="mt-4 flex items-center justify-center gap-4">
+              <div className="mt-6 flex items-center justify-center gap-4">
                 <button
                   onClick={handleResetAnswer}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-medium text-[#A64D68] bg-[#FFF8ED] border border-[#F8DCE5] hover:bg-[#F8DCE5]/50 shadow-2xs transition-all cursor-pointer"
@@ -321,11 +462,11 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
             </div>
           )}
 
-          {/* Notice for Ekta */}
-          <div className="mt-8 pt-5 border-t border-[#F8DCE5]/70 flex items-center justify-center gap-2.5 text-xs text-[#9A817B] text-center max-w-lg mx-auto leading-relaxed">
-            <ShieldCheck className="w-4 h-4 text-[#A64D68] shrink-0" />
+          {/* Gentle Romantic Footer Whisper (No mention of email) */}
+          <div className="mt-8 pt-5 border-t border-[#F8DCE5]/70 flex items-center justify-center gap-2 text-xs text-[#9A817B] text-center max-w-lg mx-auto leading-relaxed font-letter italic">
+            <Heart className="w-3.5 h-3.5 text-[#A64D68] fill-[#F8DCE5] shrink-0" />
             <span>
-              Notice for Ekta: Your response is securely stored in Firebase Firestore, and an email notification is sent to the author.
+              A little story written for you, held with care and devotion always ♡
             </span>
           </div>
         </div>
@@ -337,9 +478,9 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
           <button
             onClick={onPrevPage}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#A64D68]/40 hover:border-[#A64D68] text-[#A64D68] hover:bg-[#F8DCE5]/30 text-sm font-medium transition-all cursor-pointer"
-            aria-label="Return to Little Things page"
+            aria-label="Return to There's No One Else in My Heart page"
           >
-            <span>← Previous: Little Things</span>
+            <span>← Previous: There's No One Else in My Heart</span>
           </button>
         ) : (
           <div className="invisible sm:block w-28" aria-hidden="true" />
@@ -347,7 +488,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
 
         <div className="flex items-center gap-3">
           <div className="text-xs text-[#9A817B] font-letter italic">
-            Dedicated Page 5 of 5 · Questions
+            Dedicated Page 6 of 6 · Questions ♡
           </div>
           {onOpenOwnerDashboard && (
             <>
@@ -380,61 +521,6 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
             </button>
           )}
         </div>
-      </div>
-    </>
-  );
-
-  const renderOneMoreThingContent = () => (
-    <OneMoreThingSection
-      onReturnToProposal={handleReturnToProposal}
-      onGoHome={onGoHome}
-      proposalChoice={currentChoiceLabel}
-      initialSubmissionId={sessionSubmissionId}
-    />
-  );
-
-  return (
-    <section
-      id="proposal-section"
-      className="py-20 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto relative z-20"
-      aria-label="The Final Proposal for Ekta"
-    >
-      {/* Confetti Explosion Celebration Overlay — Strictly ONLY for YES selection */}
-      {showCelebration && selectedAnswer === 'yes' && (
-        <HeartConfettiCelebration
-          onDismiss={() => setShowCelebration(false)}
-          title="She Said Yes! ♡"
-          subtitle="A shower of love for Ekta ✨"
-        />
-      )}
-
-      {/* 3D Physical Paper-Turn Animation Container */}
-      <div className="w-full relative [perspective:1400px]">
-        {/* Underneath content: Displays target page when turning, active page when idle */}
-        {isTurningPage ? (
-          <div>
-            {turnDirection === 'next' ? renderOneMoreThingContent() : renderProposalContent()}
-
-            <CurvedPaperSheet<'proposal' | 'one-more-thing'>
-              currentChapter={turnDirection === 'next' ? 'proposal' : 'one-more-thing'}
-              targetChapter={turnDirection === 'next' ? 'one-more-thing' : 'proposal'}
-              direction={turnDirection}
-              duration={1100}
-              onComplete={() => {
-                setActiveSubPage(turnDirection === 'next' ? 'one-more-thing' : 'proposal');
-                setIsTurningPage(false);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              renderPageContent={(sub) =>
-                sub === 'proposal' ? renderProposalContent() : renderOneMoreThingContent()
-              }
-            />
-          </div>
-        ) : activeSubPage === 'one-more-thing' ? (
-          renderOneMoreThingContent()
-        ) : (
-          renderProposalContent()
-        )}
       </div>
     </section>
   );

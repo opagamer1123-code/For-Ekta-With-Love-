@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Heart, Sparkles, Feather, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Heart, Feather, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { EnvelopeIllustration, EnvelopeAnimationPhase } from './EnvelopeIllustration';
 import { PageTurnBook } from './PageTurnBook';
-import { authoritativeStoryChapters, homeStoryOpening } from '../config/ektaStoryConfig';
+import { authoritativeStoryChapters } from '../config/ektaStoryConfig';
 import { romanticAudio } from '../services/soundtrack';
+import { paperFlipAudio } from '../services/paperSound';
 
 interface OpeningEnvelopeProps {
   isOpen: boolean;
@@ -18,44 +19,58 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
 }) => {
   const [phase, setPhase] = useState<EnvelopeAnimationPhase>(isOpen ? 'revealed' : 'closed');
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(() => paperFlipAudio.getIsMuted());
 
-  // Coordinated staged animation sequence (~1.2 - 1.8 seconds total)
+  // Subscribe to audio mute changes
+  useEffect(() => {
+    return paperFlipAudio.subscribe((muted) => {
+      setIsAudioMuted(muted);
+    });
+  }, []);
+
+  // Coordinated staged cinematic physical opening sequence (3.7 seconds total)
+  // 1. Wax seal press and crack — 0.4s
+  // 2. Wax seal breaking — 0.5s
+  // 3. Envelope flap opening — 1.0s
+  // 4. Letter sliding out — 1.2s
+  // 5. Final letter reveal — 0.6s
   const runOpeningSequence = () => {
-    if (isAnimating || phase === 'revealed') return;
+    if (isAnimating || phase !== 'closed') return;
 
     setIsAnimating(true);
-    onOpen();
 
-    // Start playing Dil Se Dil on opening the envelope
-    romanticAudio.play().catch(() => {});
+    // Stage 1: Wax seal press and crack fissure (0.0s - 0.4s)
+    setPhase('seal-press');
+    paperFlipAudio.playWaxCrack();
 
-    // Step 1: Heart seal pulses / glows (0 to 300ms)
-    setPhase('pulse-seal');
-
-    // Step 2: Wax seal lifts away and fades elegantly (at 320ms)
+    // Stage 2: Wax seal breaking & splitting into fragments (0.4s - 0.9s)
     setTimeout(() => {
-      setPhase('lift-seal');
-    }, 320);
+      setPhase('seal-break');
+    }, 400);
 
-    // Step 3: Upper flap rotates open via rotateX(180deg) (at 650ms)
+    // Stage 3: Triangular flap 3D folds backwards from hinge (0.9s - 1.9s)
     setTimeout(() => {
-      setPhase('open-flap');
-    }, 650);
+      setPhase('flap-opening');
+      paperFlipAudio.playFlapOpen();
+    }, 900);
 
-    // Step 4: Cream letter rises slowly upward from envelope pocket (at 1000ms)
+    // Stage 4: Letter slides out with gentle pause at ~40% (1.9s - 3.1s)
     setTimeout(() => {
-      setPhase('rise-letter');
-    }, 1000);
+      setPhase('letter-sliding');
+      paperFlipAudio.playLetterSlide();
+    }, 1900);
 
-    // Step 5: Letter unfolds / expands into readable page (at 1350ms)
+    // Stage 5: Letter reaches full emergence & blooms into focus (3.1s - 3.7s)
     setTimeout(() => {
-      setPhase('unfold');
-    }, 1350);
+      setPhase('letter-reveal');
+      paperFlipAudio.playLetterUnfold();
+    }, 3100);
 
-    // Step 6-9: Complete unfold, reveal opening title & first story portion + Next Page (at 1650ms)
+    // Stage 6: Seamlessly cross-fade into the page-turn book reading experience (at 3.7s)
     setTimeout(() => {
       setPhase('revealed');
       setIsAnimating(false);
+      onOpen();
 
       // Smoothly scroll down to the revealed letter reading view
       setTimeout(() => {
@@ -64,19 +79,25 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
           letterCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 100);
-    }, 1650);
+    }, 3700);
   };
 
   const handleResetToSealed = () => {
     if (isAnimating) return;
     setPhase('closed');
+    romanticAudio.pause();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleToggleSound = () => {
+    paperFlipAudio.toggleMute();
   };
 
   return (
     <section
       id="envelope-section"
-      className="min-h-[calc(100vh-72px)] flex flex-col items-center justify-between px-4 sm:px-6 pt-7 sm:pt-10 md:pt-12 pb-10 sm:pb-14 relative overflow-hidden paper-pattern"
+      className="min-h-[calc(100vh-72px)] flex flex-col items-center justify-between px-4 sm:px-6 pt-7 sm:pt-10 md:pt-12 pb-10 sm:pb-14 relative overflow-hidden paper-pattern will-change-transform"
+      style={{ willChange: 'transform', transform: 'translateZ(0)' }}
       aria-label="A Story for Ekta"
     >
       {/* Decorative Pressed Flowers / Botanical Line Flourishes (aria-hidden) */}
@@ -102,21 +123,31 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
         </svg>
       </div>
 
-      {/* STATE A: Sealed Envelope & Initial Call To Action */}
+      {/* STATE A: Sealed Envelope & 3D Opening Animation Experience */}
       {phase !== 'revealed' ? (
         <div className="flex flex-col items-center justify-between w-full flex-1 max-w-3xl mx-auto">
           {/* Hero Typography Composition */}
           <div className="text-center max-w-[760px] mx-auto relative z-20 flex flex-col items-center animate-[fadeSlideDown_0.8s_ease-out]">
-            {/* Small handwritten eyebrow */}
-            <div className="inline-flex items-center gap-2 mb-2.5">
+            {/* Small handwritten eyebrow with optional subtle audio toggle */}
+            <div className="inline-flex items-center gap-3 mb-2.5">
               <span className="h-px w-6 sm:w-8 bg-gradient-to-r from-transparent to-[#A64D68]/40" aria-hidden="true" />
               <span className="font-handwriting text-2xl sm:text-3xl text-[#A64D68] tracking-wide inline-flex items-center gap-1.5">
                 For Ekta ♡
               </span>
               <span className="h-px w-6 sm:w-8 bg-gradient-to-l from-transparent to-[#A64D68]/40" aria-hidden="true" />
+
+              <button
+                type="button"
+                onClick={handleToggleSound}
+                className="ml-1 p-1 rounded-full text-[#9A817B] hover:text-[#A64D68] hover:bg-[#F8DCE5]/40 transition-colors"
+                title={isAudioMuted ? 'Turn on paper sounds' : 'Mute paper sounds'}
+                aria-label={isAudioMuted ? 'Turn on paper sounds' : 'Mute paper sounds'}
+              >
+                {isAudioMuted ? <VolumeX className="w-4 h-4 opacity-70" /> : <Volume2 className="w-4 h-4" />}
+              </button>
             </div>
 
-            {/* Exact initial message specified in requirements */}
+            {/* Initial hero headline */}
             <h1 className="font-heading text-[clamp(2rem,4.2vw,3.2rem)] text-[#5A3545] font-semibold leading-[1.2] tracking-tight max-w-[760px]">
               Hey Ekta, I have a little story to tell you...
             </h1>
@@ -127,8 +158,8 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
             </p>
           </div>
 
-          {/* Staged Envelope Illustration with Heart Wax Seal */}
-          <div className="w-full my-auto py-3 relative z-20 flex items-center justify-center">
+          {/* Staged 3D Physical Envelope with Breaking Wax Seal */}
+          <div className="w-full my-auto py-2 relative z-20 flex items-center justify-center">
             <EnvelopeIllustration
               phase={phase}
               onSealClick={runOpeningSequence}
@@ -136,30 +167,25 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
             />
           </div>
 
-          {/* Primary Action Button: "Open Your Letter ♡" */}
-          <div className="relative z-20 text-center flex flex-col items-center justify-center animate-[fadeSlideUp_0.9s_ease-out_0.2s_both]">
-            <button
-              onClick={runOpeningSequence}
-              disabled={isAnimating}
-              type="button"
-              className="group inline-flex items-center justify-center gap-3 px-8 sm:px-11 py-3.5 sm:py-4 rounded-full bg-gradient-to-r from-[#A64D68] via-[#9B455F] to-[#8E3E56] hover:from-[#933D56] hover:to-[#5A3545] text-white font-medium text-base sm:text-lg shadow-[0_8px_24px_rgba(166,77,104,0.32)] hover:shadow-[0_12px_28px_rgba(166,77,104,0.4)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-3 focus-visible:ring-[#A64D68]/50 focus-visible:outline-hidden disabled:opacity-80 disabled:cursor-not-allowed"
-              aria-label="Open Your Letter"
-            >
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#F8DCE5] animate-pulse" aria-hidden="true" />
-              <span>Open Your Letter ♡</span>
-              <Heart
-                className="w-4 h-4 sm:w-5 sm:h-5 text-[#F8DCE5] fill-[#F8DCE5] transition-transform duration-300 group-hover:scale-125"
-                aria-hidden="true"
-              />
-            </button>
-            <p className="mt-2.5 text-xs text-[#9A817B] font-letter italic">
-              Click the button or tap the wax seal to unfold the letter
-            </p>
+          {/* Gentle Callout: Tapping the wax seal triggers the physical 3D opening */}
+          <div className="relative z-20 text-center flex flex-col items-center justify-center animate-[fadeSlideUp_0.9s_ease-out_0.2s_both] pb-3">
+            <div className="inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full bg-[#FFF5F8]/90 border border-[#F8DCE5] shadow-xs">
+              <Heart className="w-3.5 h-3.5 text-[#A64D68] fill-[#A64D68]/70 animate-pulse" aria-hidden="true" />
+              <span className="font-handwriting text-base sm:text-lg text-[#A64D68] tracking-wide">
+                {phase === 'closed'
+                  ? 'Tap the wax seal to unfold the letter ♡'
+                  : phase === 'seal-press' || phase === 'seal-break'
+                  ? 'The seal gently cracks open...'
+                  : phase === 'flap-opening'
+                  ? 'Unfolding the letter...'
+                  : 'Revealing her story with all my heart...'}
+              </span>
+            </div>
           </div>
         </div>
       ) : (
         /* STATE B: Unfolded Letter & Authentic Physical 3D Page-Turn Experience */
-        <div id="story-book-section" className="w-full flex-1 flex flex-col items-center animate-[letterUnfold_0.7s_cubic-bezier(0.16,1,0.3,1)]">
+        <div id="story-book-section" className="w-full flex-1 flex flex-col items-center animate-[letterUnfoldSmooth_0.8s_cubic-bezier(0.16,1,0.3,1)]">
           {/* Top Banner Ribbon */}
           <div className="w-full max-w-3xl flex items-center justify-between mb-4 px-2">
             <span className="font-handwriting text-2xl text-[#A64D68] inline-flex items-center gap-1.5">
@@ -169,7 +195,7 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
 
             <button
               onClick={handleResetToSealed}
-              className="inline-flex items-center gap-1.5 text-xs text-[#9A817B] hover:text-[#A64D68] transition-colors py-1 px-2 rounded-md hover:bg-[#F8DCE5]/30"
+              className="inline-flex items-center gap-1.5 text-xs text-[#9A817B] hover:text-[#A64D68] transition-colors py-1 px-2 rounded-md hover:bg-[#F8DCE5]/30 cursor-pointer"
               title="Close back to sealed envelope"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -211,10 +237,10 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
             transform: translateY(0);
           }
         }
-        @keyframes letterUnfold {
+        @keyframes letterUnfoldSmooth {
           from {
             opacity: 0;
-            transform: translateY(24px) scale(0.96);
+            transform: translateY(20px) scale(0.97);
           }
           to {
             opacity: 1;
@@ -224,7 +250,7 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
         @media (prefers-reduced-motion: reduce) {
           .animate-[fadeSlideDown_0.8s_ease-out],
           .animate-[fadeSlideUp_0.9s_ease-out_0.2s_both],
-          .animate-[letterUnfold_0.7s_cubic-bezier(0.16,1,0.3,1)] {
+          .animate-[letterUnfoldSmooth_0.8s_cubic-bezier(0.16,1,0.3,1)] {
             animation: none !important;
             opacity: 1 !important;
             transform: none !important;
