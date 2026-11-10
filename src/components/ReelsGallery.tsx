@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Play,
   Film,
-  Sparkles,
   Heart,
   Search,
   X,
@@ -107,7 +106,6 @@ interface ReelExploreTileProps {
   isLiked: boolean;
   onOpen: (reel: ReelItem) => void;
   onToggleLike: (reel: ReelItem) => void;
-  formatReelNumber: (id: number) => string;
 }
 
 const ReelExploreTile: React.FC<ReelExploreTileProps> = ({
@@ -116,7 +114,6 @@ const ReelExploreTile: React.FC<ReelExploreTileProps> = ({
   isLiked,
   onOpen,
   onToggleLike,
-  formatReelNumber,
 }) => {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -181,7 +178,7 @@ const ReelExploreTile: React.FC<ReelExploreTileProps> = ({
           onOpen(reel);
         }
       }}
-      aria-label={`${formatReelNumber(reel.id)}: ${reel.title}`}
+      aria-label={reel.title}
     >
       {/* Background Poster Image */}
       <div className="absolute inset-0 w-full h-full bg-[#180C14] overflow-hidden">
@@ -207,30 +204,8 @@ const ReelExploreTile: React.FC<ReelExploreTileProps> = ({
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/35 group-hover:via-black/20 transition-all" />
       </div>
 
-      {/* Featured Ribbon Badge (for large featured items) */}
-      {spanInfo.isFeatured && (
-        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF8ED]/95 backdrop-blur-md text-[#A64D68] border border-[#C7A66A]/80 shadow-2xs text-[9px] sm:text-[10px] font-bold tracking-wider uppercase">
-          <Sparkles className="w-3 h-3 text-[#C7A66A] fill-current" />
-          <span>Featured Memory ♡</span>
-        </div>
-      )}
-
-      {/* Top Bar: Reel Number Pill & Heart Like Indicator */}
-      <div
-        className={`relative z-10 p-1.5 xs:p-2 sm:p-2.5 flex items-center justify-between ${
-          spanInfo.isFeatured ? 'mt-7' : ''
-        }`}
-      >
-        <span
-          className={`px-1.5 py-0.5 sm:px-2 rounded-full text-[8px] xs:text-[9px] sm:text-[10px] font-bold tracking-wider uppercase backdrop-blur-md shadow-2xs border ${
-            spanInfo.isFeatured
-              ? 'bg-[#FFF8ED]/95 text-[#A64D68] border-[#C7A66A]/70'
-              : 'bg-white/90 text-[#A64D68] border-[#F8DCE5]/70'
-          }`}
-        >
-          {formatReelNumber(reel.id)}
-        </span>
-
+      {/* Top Bar: Heart Like Indicator (top-right) */}
+      <div className="relative z-10 p-1.5 xs:p-2 sm:p-2.5 flex items-center justify-end">
         {/* Interactive Quick Like Indicator */}
         <button
           type="button"
@@ -238,10 +213,10 @@ const ReelExploreTile: React.FC<ReelExploreTileProps> = ({
             e.stopPropagation();
             onToggleLike(reel);
           }}
-          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full backdrop-blur-md flex items-center justify-center transition-all duration-300 shadow-sm cursor-pointer active:scale-90 ${
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full backdrop-blur-md flex items-center justify-center transition-all duration-300 shadow-sm cursor-pointer active:scale-90 ${
             isLiked
               ? 'bg-[#FFF0F4] text-[#E2556E] border border-[#D99AA5] scale-105 ring-2 ring-[#E2556E]/20'
-              : 'bg-black/45 hover:bg-black/65 text-white/90 border border-white/30 hover:scale-110'
+              : 'bg-black/55 hover:bg-black/75 text-white/95 border border-white/40 hover:scale-110'
           }`}
           title={isLiked ? 'You liked this memory ♡' : 'Tap to like this memory'}
           aria-label={isLiked ? 'Liked memory' : 'Like memory'}
@@ -409,14 +384,15 @@ export const ReelsGallery: React.FC<ReelsGalleryProps> = ({
     });
   };
 
+  const modalReelsRef = useRef<ReelItem[]>(reelsData);
+
   const handleOpenReel = (reel: ReelItem) => {
     setActiveReel(reel);
+    modalReelsRef.current = filteredReels.length > 0 ? [...filteredReels] : [...reelsData];
     if (onReelSelect) {
       onReelSelect(reel);
     }
   };
-
-  const formatReelNumber = (id: number) => `REEL ${String(id).padStart(2, '0')}`;
 
   // Unique Categories
   const categories = useMemo(() => {
@@ -453,37 +429,11 @@ export const ReelsGallery: React.FC<ReelsGalleryProps> = ({
 
       return matchesNum || matchesTitle || matchesCaption || matchesCategory;
     });
-  }, [searchQuery, selectedCategory, activeLikedIds]);
+  }, [searchQuery, selectedCategory, selectedCategory === 'Liked ♡' ? activeLikedIds : null]);
 
   return (
     <div className="w-full flex flex-col items-center justify-center">
-      {/* =================================================================== */}
-      {/* SECTION HEADER & ROMANTIC SCRAPBOOK EMBLEM                         */}
-      {/* =================================================================== */}
-      <div className="text-center max-w-2xl mx-auto mb-5 sm:mb-7 animate-in fade-in duration-500">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-tr from-[#F8DCE5] to-[#FFF5F8] border border-[#E2A9B8] shadow-2xs mb-3 text-[#A64D68]">
-          <Film className="w-6 h-6 text-[#A64D68]" />
-        </div>
 
-        <h2 className="font-heading font-serif text-2xl sm:text-3xl md:text-4xl text-[#5A3545] font-semibold mb-2 tracking-tight">
-          Moments in Motion ♡
-        </h2>
-        <p className="font-handwriting text-lg sm:text-xl md:text-2xl text-[#A64D68] leading-relaxed max-w-xl mx-auto">
-          Little videos, lovely memories, and moments worth keeping.
-        </p>
-
-        <div className="flex items-center justify-center gap-2 text-xs text-[#A64D68] mt-2.5 flex-wrap">
-          <Sparkles className="w-3.5 h-3.5 text-[#C7A66A]" />
-          <span className="font-medium text-[#5A3545]">
-            {reelsData.length} Special Memories Prepared for Ekta
-          </span>
-          <span aria-hidden="true" className="text-[#C7A66A]">✦</span>
-          <span className="text-[#A64D68] font-semibold">
-            {activeLikedIds.length} {activeLikedIds.length === 1 ? 'memory liked' : 'memories liked'} ❤️
-          </span>
-          <Sparkles className="w-3.5 h-3.5 text-[#C7A66A]" />
-        </div>
-      </div>
 
       {/* =================================================================== */}
       {/* SEARCH AND CATEGORY FILTERS                                         */}
@@ -565,7 +515,6 @@ export const ReelsGallery: React.FC<ReelsGalleryProps> = ({
                 isLiked={activeLikedIds.includes(reel.id)}
                 onOpen={handleOpenReel}
                 onToggleLike={handleToggleLike}
-                formatReelNumber={formatReelNumber}
               />
             ))}
           </div>
@@ -608,10 +557,11 @@ export const ReelsGallery: React.FC<ReelsGalleryProps> = ({
       {activeReel && (
         <VintageReelModal
           initialReel={activeReel}
-          allReels={filteredReels.length > 0 ? filteredReels : reelsData}
+          allReels={modalReelsRef.current}
           onClose={() => setActiveReel(null)}
           likedReelIds={activeLikedIds}
           onToggleLike={handleToggleLike}
+          onReelChange={(reel) => setActiveReel(reel)}
         />
       )}
     </div>

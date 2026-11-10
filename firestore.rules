@@ -26,11 +26,12 @@ service cloud.firestore {
 
     function isValidProposalResponse(data) {
       return data.keys().hasAll(['submissionRef', 'proposalChoice', 'submittedAt']) &&
-        data.keys().hasOnly(['submissionRef', 'proposalChoice', 'submittedAt', 'marriageAnswer', 'status', 'createdAt', 'clientSessionId', 'mailDocId']) &&
+        data.keys().hasOnly(['submissionRef', 'proposalChoice', 'submittedAt', 'marriageAnswer', 'readingDuration', 'status', 'createdAt', 'clientSessionId', 'mailDocId']) &&
         data.submissionRef is string && data.submissionRef.size() <= 128 &&
         data.proposalChoice is string && data.proposalChoice.size() <= 256 &&
         data.submittedAt is string && data.submittedAt.size() <= 64 &&
         (!('marriageAnswer' in data) || (data.marriageAnswer is string && data.marriageAnswer.size() <= 10000)) &&
+        (!('readingDuration' in data) || (data.readingDuration is string && data.readingDuration.size() <= 256)) &&
         (!('mailDocId' in data) || (data.mailDocId is string && data.mailDocId.size() <= 128)) &&
         (!('status' in data) || (data.status is string && data.status.size() <= 64)) &&
         (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64));

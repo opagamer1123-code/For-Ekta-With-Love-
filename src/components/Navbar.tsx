@@ -108,20 +108,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </nav>
 
-        {/* Right: Embedded Music Player + Privacy Icon */}
+        {/* Right: Embedded Music Player */}
         <div className="hidden sm:flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Embedded Audio Player directly inside header to prevent overlapping */}
           <AudioPlayer embedded={true} />
-
-          {/* Privacy Notice Icon */}
-          <button
-            onClick={onOpenPrivacyNotice}
-            className="p-1.5 text-[#9A817B] hover:text-[#5A3545] hover:bg-[#F8DCE5]/30 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[#A64D68]/60 focus-visible:outline-hidden"
-            title="Local storage and privacy info"
-            aria-label="View local storage privacy information"
-          >
-            <Shield className="w-4 h-4" />
-          </button>
         </div>
 
         {/* Mobile Actions: Audio Player + Hamburger Menu */}
@@ -194,13 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div className="pt-3 border-t border-[rgba(166,77,104,0.18)] flex items-center justify-between text-xs text-[#9A817B]">
             <span className="font-handwriting text-sm text-[#A64D68]">For Ekta, With Love ♡</span>
-            <button
-              onClick={onOpenPrivacyNotice}
-              className="underline flex items-center gap-1 cursor-pointer"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Storage Policy</span>
-            </button>
+            <span className="text-[11px] font-letter italic text-[#9A817B]">Always &amp; forever ♡</span>
           </div>
         </div>
       )}

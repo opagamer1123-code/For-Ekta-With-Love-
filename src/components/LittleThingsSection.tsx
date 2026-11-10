@@ -1,13 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Heart,
-  RotateCcw,
-  Flower2,
-  Sparkles,
-  Film,
-} from 'lucide-react';
+import { Heart, Flower2 } from 'lucide-react';
 import { LittleThingCard } from '../config/proposalConfig';
-import { loadLittleThings, saveLittleThings } from '../services/notesStorage';
+import { loadLittleThings } from '../services/notesStorage';
 import { FoldedScrapbookCard } from './FoldedScrapbookCard';
 import { LoveShowerOverlay } from './LoveShowerOverlay';
 
@@ -83,27 +77,7 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
 }) => {
   const [cards, setCards] = useState<LittleThingCard[]>([]);
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
-  const [editingCard, setEditingCard] = useState<LittleThingCard | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editContent, setEditContent] = useState('');
-  const [isLoveShowerActive, setIsLoveShowerActive] = useState(false);
-  const [viewFilter, setViewFilter] = useState<'all' | 'video'>('all');
-
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  const toggleLoveShower = () => {
-    setIsLoveShowerActive((prev) => {
-      const next = !prev;
-      if (next && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate?.(40);
-        } catch {
-          // ignore
-        }
-      }
-      return next;
-    });
-  };
 
   // Parallax Sprig Refs
   const sprig1Ref = useRef<HTMLDivElement | null>(null);
@@ -217,48 +191,12 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
     }));
   };
 
-  const handleStartEdit = (card: LittleThingCard) => {
-    setEditingCard(card);
-    setEditTitle(card.title);
-    setEditContent(card.content);
-  };
-
-  const handleSaveEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCard) return;
-
-    const updated = cards.map((c) =>
-      c.id === editingCard.id ? { ...c, title: editTitle, content: editContent } : c
-    );
-    setCards(updated);
-    saveLittleThings(updated);
-    setEditingCard(null);
-  };
-
-  const handleResetCards = () => {
-    if (window.confirm('Reset all 14 scrapbook cards to default text and illustrations?')) {
-      localStorage.removeItem('for_ekta_little_things_v1');
-      localStorage.removeItem('for_ekta_little_things_scrapbook_v2');
-      const reloaded = loadLittleThings();
-      setCards(reloaded);
-    }
-  };
-
   // Divide the cards into the layout groups:
   // 1. First 3 prominent cards (Top Row)
   // 2. Middle cards (Cards 04 to 13)
-  // 3. Final special card (Card 14: Simply Ekta ♡)
-  const isVideoFilter = viewFilter === 'video';
-  const filteredCards = isVideoFilter ? cards.filter((c) => Boolean(c.videoUrl)) : cards;
-  const topThreeCards = isVideoFilter ? filteredCards.slice(0, 3) : cards.slice(0, 3);
-  const middleCards = isVideoFilter
-    ? filteredCards.slice(3, Math.max(3, filteredCards.length - 1))
-    : cards.slice(3, 13);
-  const finalCard = isVideoFilter
-    ? filteredCards.length > 3
-      ? filteredCards[filteredCards.length - 1]
-      : null
-    : cards[13] || cards[cards.length - 1];
+  const topThreeCards = cards.slice(0, 3);
+  const middleCards = cards.slice(3, 13);
+  const finalCard = cards[13] || cards[cards.length - 1];
 
   return (
     <section
@@ -322,20 +260,15 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
             : 'opacity-0 translate-y-8 scale-[0.98]'
         }`}
       >
-        {/* Small Heading Label: ♡ Admiring You ♡ */}
-        <div className="flex items-center justify-center gap-2 mb-3 text-[#A64D68]">
-          <span className="font-handwriting text-xl sm:text-2xl tracking-wider">
+        {/* Chapter Heading Label: ♡ Admiring You ♡ */}
+        <div className="flex items-center justify-center gap-2 mb-2 text-[#A64D68]">
+          <h2 className="font-handwriting text-2xl sm:text-3xl lg:text-4xl tracking-wider font-normal">
             ♡ Admiring You ♡
-          </span>
+          </h2>
         </div>
 
-        {/* Chapter Title in Burgundy Editorial Serif */}
-        <h2 className="font-heading font-serif text-3xl sm:text-4xl lg:text-5xl text-[#4A1D2B] font-semibold leading-tight tracking-tight">
-          Little Things That Make You, You ♡
-        </h2>
-
         {/* Subtitle in Italic Letter Typography */}
-        <p className="mt-3.5 sm:mt-4 text-sm sm:text-base text-[#7A5B64] font-letter italic leading-relaxed max-w-lg mx-auto">
+        <p className="mt-2 text-sm sm:text-base text-[#7A5B64] font-letter italic leading-relaxed max-w-lg mx-auto">
           A little collection of the things that make you so beautifully yourself.
         </p>
 
@@ -345,89 +278,6 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
           <Flower2 className="w-3.5 h-3.5 text-[#D99AA5]" />
           <span className="h-px w-12 sm:w-20 bg-gradient-to-l from-transparent to-[#C7A66A]/50" />
         </div>
-
-        {/* 'Love Shower' Toggle Button */}
-        <div className="mt-5 flex items-center justify-center">
-          <button
-            type="button"
-            onClick={toggleLoveShower}
-            className={`group/shower inline-flex items-center gap-3 min-h-[44px] px-6 py-2.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 shadow-xs hover:shadow-md cursor-pointer select-none active:scale-95 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 ${
-              isLoveShowerActive
-                ? 'bg-gradient-to-r from-[#A64D68] via-[#C96B85] to-[#A64D68] text-white border border-[#A64D68] shadow-md shadow-rose-950/20 ring-2 ring-[#F8DCE5]'
-                : 'bg-[#FFFDF9] hover:bg-[#FFF5F8] text-[#A64D68] border border-[#E2A9B8] hover:border-[#A64D68]'
-            }`}
-            aria-pressed={isLoveShowerActive}
-            aria-label="Toggle Love Shower falling hearts animation"
-          >
-            <Heart
-              className={`w-4 h-4 transition-transform duration-300 ${
-                isLoveShowerActive
-                  ? 'fill-white text-white scale-110 animate-pulse'
-                  : 'text-[#A64D68] fill-[#F8DCE5] group-hover/shower:scale-110'
-              }`}
-              aria-hidden="true"
-            />
-            <span className="font-serif tracking-wide font-semibold">
-              {isLoveShowerActive ? 'Falling Hearts: ON ♡' : 'Trigger Falling Hearts ♡'}
-            </span>
-            {/* Tactile toggle pill switch indicator */}
-            <span
-              className={`w-9 h-5 rounded-full p-0.5 flex items-center transition-colors duration-300 ${
-                isLoveShowerActive ? 'bg-white/30 justify-end' : 'bg-[#F8DCE5] justify-start'
-              }`}
-              aria-hidden="true"
-            >
-              <span
-                className={`w-4 h-4 rounded-full transition-transform duration-300 shadow-xs flex items-center justify-center ${
-                  isLoveShowerActive ? 'bg-white text-[#A64D68]' : 'bg-[#A64D68] text-white'
-                }`}
-              >
-                <Heart className="w-2.5 h-2.5 fill-current" />
-              </span>
-            </span>
-          </button>
-        </div>
-
-        {/* Memory View Filter: All 14 Cards vs Cards with Video Progress Bar */}
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => setViewFilter('all')}
-            className={`min-h-[36px] px-4 py-1.5 rounded-full text-xs font-serif transition-all cursor-pointer ${
-              viewFilter === 'all'
-                ? 'bg-[#A64D68] text-white shadow-xs font-semibold'
-                : 'bg-[#FFFDF9] hover:bg-[#FFF5F8] text-[#7A5B64] border border-[#E2A9B8]'
-            }`}
-          >
-            All 14 Scrapbook Pages
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewFilter('video')}
-            className={`inline-flex items-center gap-1.5 min-h-[36px] px-4 py-1.5 rounded-full text-xs font-serif transition-all cursor-pointer ${
-              viewFilter === 'video'
-                ? 'bg-[#A64D68] text-white shadow-xs font-semibold'
-                : 'bg-[#FFFDF9] hover:bg-[#FFF5F8] text-[#A64D68] border border-[#E2A9B8]'
-            }`}
-          >
-            <Film className="w-3.5 h-3.5 text-[#C7A66A]" />
-            <span>Cards with Video Memories ♡ ({cards.filter((c) => Boolean(c.videoUrl)).length})</span>
-          </button>
-        </div>
-
-        {/* Owner Controls */}
-        {isOwnerMode && (
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-            <span className="text-xs text-[#9A817B]">Owner Mode: customize or edit any card</span>
-            <button
-              onClick={handleResetCards}
-              className="min-h-[40px] px-3 py-1.5 text-xs text-[#A64D68] hover:text-[#4A1D2B] underline flex items-center gap-1.5 rounded-lg hover:bg-[#F8DCE5]/20 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#A64D68]/40 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Reset all 14 cards</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* =================================================================== */}
@@ -469,8 +319,6 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
                     totalCards={cards.length}
                     isRevealed={isRevealed}
                     onToggleReveal={toggleReveal}
-                    isOwnerMode={isOwnerMode}
-                    onEditCard={handleStartEdit}
                     prefersReducedMotion={prefersReducedMotion}
                   />
                 </div>
@@ -520,8 +368,6 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
                     totalCards={cards.length}
                     isRevealed={isRevealed}
                     onToggleReveal={toggleReveal}
-                    isOwnerMode={isOwnerMode}
-                    onEditCard={handleStartEdit}
                     prefersReducedMotion={prefersReducedMotion}
                   />
                 </div>
@@ -561,67 +407,8 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
               totalCards={cards.length}
               isRevealed={revealedIds[finalCard.id] ?? false}
               onToggleReveal={toggleReveal}
-              isOwnerMode={isOwnerMode}
-              onEditCard={handleStartEdit}
               prefersReducedMotion={prefersReducedMotion}
             />
-          </div>
-        </div>
-      )}
-
-      {/* Edit Card Modal (Owner mode) */}
-      {editingCard && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#4A1D2B]/50 backdrop-blur-xs animate-in fade-in duration-200"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-card-title"
-        >
-          <div className="bg-[#FFFDF9] rounded-3xl max-w-lg w-full border border-[#F8DCE5] shadow-2xl p-6 sm:p-8">
-            <h3 id="edit-card-title" className="font-heading font-serif text-xl sm:text-2xl text-[#4A1D2B] font-semibold mb-4">
-              Edit Scrapbook Card
-            </h3>
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#4A1D2B]/80 uppercase tracking-wider mb-1.5 font-serif">
-                  Card Title
-                </label>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-[#F8DCE5] bg-white text-base text-[#4A1D2B] focus:outline-hidden focus:ring-2 focus:ring-[#A64D68]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#4A1D2B]/80 uppercase tracking-wider mb-1.5 font-serif">
-                  Card Message
-                </label>
-                <textarea
-                  rows={6}
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-[#F8DCE5] bg-white text-base text-[#4A1D2B] focus:outline-hidden focus:ring-2 focus:ring-[#A64D68]"
-                  required
-                />
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingCard(null)}
-                  className="min-h-[44px] px-5 py-2.5 rounded-full text-xs sm:text-sm font-medium text-[#4A1D2B]/70 hover:bg-[#F8DCE5]/30 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#A64D68]/40 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="min-h-[44px] px-6 py-2.5 rounded-full bg-[#A64D68] hover:bg-[#8E3E56] text-white text-xs sm:text-sm font-medium shadow-sm hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#A64D68]/40 cursor-pointer"
-                >
-                  Save Card
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
@@ -664,32 +451,8 @@ export const LittleThingsSection: React.FC<LittleThingsSectionProps> = ({
         </button>
       </div>
 
-      {/* Floating Love Shower Quick Toggle (Quickly toggle or turn off from anywhere while reading through the 14 scrapbook cards) */}
-      <div className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-30 pointer-events-auto">
-        <button
-          type="button"
-          onClick={toggleLoveShower}
-          className={`group/float inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-medium shadow-lg backdrop-blur-md transition-all duration-300 active:scale-95 cursor-pointer focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-[#A64D68]/40 ${
-            isLoveShowerActive
-              ? 'bg-[#A64D68]/95 hover:bg-[#8E3E56] text-white border border-[#C7A66A]/50 shadow-rose-950/25 ring-2 ring-[#F8DCE5]'
-              : 'bg-[#FFFDF9]/95 hover:bg-[#FFF5F8] text-[#A64D68] border border-[#E2A9B8] shadow-rose-950/10'
-          }`}
-          aria-label={isLoveShowerActive ? 'Turn off falling hearts shower' : 'Turn on falling hearts shower'}
-          title="Toggle Love Shower falling hearts"
-        >
-          <Heart
-            className={`w-3.5 h-3.5 transition-transform duration-300 ${
-              isLoveShowerActive ? 'fill-white animate-pulse' : 'fill-[#F8DCE5] text-[#A64D68] group-hover/float:scale-110'
-            }`}
-          />
-          <span className="font-serif tracking-wide font-semibold">
-            {isLoveShowerActive ? 'Hearts: ON ♡' : 'Falling Hearts ♡'}
-          </span>
-        </button>
-      </div>
-
-      {/* Love Shower Falling Hearts Animation Overlay */}
-      <LoveShowerOverlay isActive={isLoveShowerActive} />
+      {/* Love Shower Falling Hearts Animation Overlay (Kept continuously active for Ekta) */}
+      <LoveShowerOverlay isActive={true} />
     </section>
   );
 };

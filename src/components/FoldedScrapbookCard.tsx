@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronUp, Sparkles, Heart, Edit3, Film, Image } from 'lucide-react';
+import { ChevronUp, Sparkles, Heart, Edit3 } from 'lucide-react';
 import { LittleThingCard } from '../config/proposalConfig';
 import { renderScrapbookIllustration } from './ScrapbookIllustrations';
-import { ScrapbookVideoPlayer } from './ScrapbookVideoPlayer';
 
 interface FoldedScrapbookCardProps {
   card: LittleThingCard;
@@ -47,7 +46,6 @@ export const FoldedScrapbookCard: React.FC<FoldedScrapbookCardProps> = ({
 
   // Split multi-paragraph content cleanly
   const paragraphs = card.content.split('\n\n').filter(Boolean);
-  const [showVideo, setShowVideo] = useState(false);
 
   return (
     <div
@@ -80,11 +78,11 @@ export const FoldedScrapbookCard: React.FC<FoldedScrapbookCardProps> = ({
             : isHeroCard
             ? 'border-[#E2A9B8] shadow-[0_14px_38px_rgba(74,29,43,0.08),0_3px_12px_rgba(199,166,106,0.15)]'
             : 'border-[#E5BCC5]/90 shadow-[0_12px_32px_rgba(74,29,43,0.07),0_2px_8px_rgba(199,166,106,0.12)]'
-        } p-5 sm:p-7 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_22px_52px_rgba(74,29,43,0.13),0_6px_20px_rgba(199,166,106,0.22)] ${rotationClass} hover:rotate-0 flex flex-col justify-between`}
+        } p-4 sm:p-7 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_22px_52px_rgba(74,29,43,0.13),0_6px_20px_rgba(199,166,106,0.22)] ${rotationClass} hover:rotate-0 flex flex-col justify-between`}
       >
         {/* Subtle Gold Filigree Inner Border Accent */}
         <div
-          className={`absolute inset-2 sm:inset-2.5 rounded-[18px] sm:rounded-[22px] border ${
+          className={`absolute inset-1.5 sm:inset-2.5 rounded-[18px] sm:rounded-[22px] border ${
             isFinalCard ? 'border-[#C7A66A]/50 border-dashed' : 'border-[#C7A66A]/25'
           } pointer-events-none`}
         />
@@ -140,66 +138,36 @@ export const FoldedScrapbookCard: React.FC<FoldedScrapbookCardProps> = ({
           </p>
         </div>
 
-        {/* Media Toggle when Video Memory is available */}
-        {card.videoUrl && (
-          <div className="relative z-10 flex items-center justify-center gap-1.5 mb-2">
-            <button
-              type="button"
-              onClick={() => setShowVideo(false)}
-              className={`inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 rounded-full text-[11px] font-sans transition-all cursor-pointer ${
-                !showVideo
-                  ? 'bg-[#A64D68] text-white shadow-xs font-semibold'
-                  : 'bg-[#F8DCE5]/50 hover:bg-[#F8DCE5] text-[#7A5B64]'
+        {/* Dedicated Media Area: Scrapbook Artwork Illustration */}
+        <div
+          className={`relative z-10 my-2 py-1.5 px-1.5 rounded-2xl bg-[#FFFDF9]/85 border border-[#F8DCE5]/70 shadow-inner flex items-center justify-center overflow-hidden ${
+            isFinalCard ? 'bg-gradient-to-b from-[#FFFDF9] to-[#FFF5F8]' : ''
+          }`}
+        >
+          {card.imageUrl ? (
+            <img
+              src={card.imageUrl}
+              alt={card.title}
+              className={`w-full object-contain rounded-xl select-none transition-transform duration-300 group-hover:scale-[1.02] ${
+                isFinalCard
+                  ? 'max-h-80 sm:max-h-96'
+                  : isHeroCard
+                  ? 'max-h-64 sm:max-h-72'
+                  : 'max-h-56 sm:max-h-64'
               }`}
-              title="View artistic illustration"
-            >
-              <Image className="w-3 h-3" />
-              <span>Art View</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowVideo(true)}
-              className={`inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 rounded-full text-[11px] font-sans transition-all cursor-pointer ${
-                showVideo
-                  ? 'bg-[#A64D68] text-white shadow-xs font-semibold'
-                  : 'bg-[#F8DCE5]/70 hover:bg-[#F8DCE5] text-[#A64D68] font-medium border border-[#E2A9B8]'
-              }`}
-              title="Watch video memory with custom playback progress bar"
-            >
-              <Film className="w-3 h-3" />
-              <span>Video Memory ♡</span>
-            </button>
-          </div>
-        )}
-
-        {/* Dedicated Media Area: Vector Illustration OR Video Player with Custom Progress Bar */}
-        {card.videoUrl && showVideo ? (
-          <div className="relative z-10 my-2">
-            <ScrapbookVideoPlayer
-              videoUrl={card.videoUrl}
-              posterUrl={card.videoPoster}
-              title={card.videoTitle || card.title}
-              caption={card.videoCaption}
-              autoPlay={false}
-              className="w-full"
+              loading="lazy"
             />
-          </div>
-        ) : (
-          <div
-            className={`relative z-10 my-2 py-2 px-3 rounded-2xl bg-[#FFFDF9]/85 border border-[#F8DCE5]/70 shadow-inner flex items-center justify-center overflow-hidden ${
-              isFinalCard ? 'bg-gradient-to-b from-[#FFFDF9] to-[#FFF5F8]' : ''
-            }`}
-          >
-            {renderScrapbookIllustration(
+          ) : (
+            renderScrapbookIllustration(
               card.iconType,
               isFinalCard
                 ? 'w-full h-48 sm:h-56'
                 : isHeroCard
                 ? 'w-full h-38 sm:h-44'
                 : 'w-full h-32 sm:h-36'
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
 
         {/* =================================================================== */}
         {/* FOLDED PAPER BODY & SMOOTH 3D PAPER-FOLD UNVEIL INTERACTION */}
@@ -240,7 +208,7 @@ export const FoldedScrapbookCard: React.FC<FoldedScrapbookCardProps> = ({
                     "{paragraphs[0].slice(0, 70)}..."
                   </p>
 
-                  <div className="inline-flex items-center justify-center gap-2 min-h-[40px] px-5 py-2 rounded-full bg-gradient-to-r from-[#F8DCE5] to-[#FFF5F8] text-[#A64D68] border border-[#E2A9B8] text-xs font-semibold shadow-2xs group-hover/tap:bg-[#F8DCE5] group-hover/tap:scale-[1.02] transition-all">
+                  <div className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 rounded-full bg-gradient-to-r from-[#F8DCE5] to-[#FFF5F8] text-[#A64D68] border border-[#E2A9B8] text-xs font-semibold shadow-2xs group-hover/tap:bg-[#F8DCE5] group-hover/tap:scale-[1.02] transition-all">
                     <Sparkles className="w-3.5 h-3.5 animate-pulse text-[#C7A66A]" aria-hidden="true" />
                     <span>Tap to unfold complete letter ♡</span>
                   </div>
@@ -295,19 +263,7 @@ export const FoldedScrapbookCard: React.FC<FoldedScrapbookCardProps> = ({
                   ))}
                 </div>
 
-                {/* Optional Video Memory Button with Custom Progress Bar */}
-                {card.videoUrl && !showVideo && (
-                  <div className="pt-2 flex justify-start">
-                    <button
-                      type="button"
-                      onClick={() => setShowVideo(true)}
-                      className="inline-flex items-center gap-2 min-h-[36px] px-3.5 py-1.5 rounded-full bg-[#FFF0F4] hover:bg-[#F8DCE5] text-[#A64D68] border border-[#E2A9B8]/70 text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-                    >
-                      <Film className="w-3.5 h-3.5 text-[#A64D68]" />
-                      <span>Watch Video Memory with Custom Scrubber ♡</span>
-                    </button>
-                  </div>
-                )}
+
 
                 {/* Closing Signature for Card 14 or Standard cards */}
                 <div className="mt-5 pt-3.5 border-t border-[#F8DCE5]/80 flex flex-wrap items-center justify-between gap-3">

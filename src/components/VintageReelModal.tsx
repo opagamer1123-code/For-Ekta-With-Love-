@@ -21,6 +21,7 @@ export interface VintageReelModalProps {
   onClose: () => void;
   likedReelIds?: number[];
   onToggleLike?: (reel: ReelItem) => void;
+  onReelChange?: (reel: ReelItem) => void;
 }
 
 export const VintageReelModal: React.FC<VintageReelModalProps> = ({
@@ -30,6 +31,7 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
   onClose,
   likedReelIds: propLikedReelIds,
   onToggleLike: propOnToggleLike,
+  onReelChange,
 }) => {
   const currentSelectedReel = initialReel || reel || null;
   const activeReels = allReels.length > 0 ? allReels : reelsData;
@@ -130,16 +132,44 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
     };
   }, []);
 
-  // Update currentIndex if prop changes
+  // Track the reel currently being viewed so likes/prop re-renders never jump to another reel
+  const currentReelIdRef = useRef<number>(
+    activeReels[initialIndex]?.id ?? (currentSelectedReel?.id || 1)
+  );
+  const initialPropIdRef = useRef<number | null>(currentSelectedReel?.id ?? null);
+
+  // Keep currentReelIdRef in sync whenever currentIndex changes, and inform parent
   useEffect(() => {
-    if (currentSelectedReel) {
+    const current = activeReels[currentIndex];
+    if (current) {
+      currentReelIdRef.current = current.id;
+      if (onReelChange) {
+        onReelChange(current);
+      }
+    }
+  }, [currentIndex, activeReels, onReelChange]);
+
+  // If initialReel explicitly changes to a completely NEW reel from external parent props, update index
+  useEffect(() => {
+    if (currentSelectedReel && currentSelectedReel.id !== initialPropIdRef.current) {
+      initialPropIdRef.current = currentSelectedReel.id;
       const idx = activeReels.findIndex((r) => r.id === currentSelectedReel.id);
       if (idx !== -1) {
         setCurrentIndex(idx);
+        currentReelIdRef.current = currentSelectedReel.id;
         setVideoError(false);
       }
     }
-  }, [currentSelectedReel, activeReels]);
+  }, [currentSelectedReel?.id, activeReels]);
+
+  // If activeReels updates while modal is open, strictly preserve the reel currently being watched
+  useEffect(() => {
+    const targetId = currentReelIdRef.current;
+    const targetIdx = activeReels.findIndex((r) => r.id === targetId);
+    if (targetIdx !== -1 && targetIdx !== currentIndex) {
+      setCurrentIndex(targetIdx);
+    }
+  }, [activeReels, currentIndex]);
 
   // Sync likes from server
   useEffect(() => {
@@ -521,8 +551,6 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
     (currentReel.videoUrl.includes('photos.google.com') ||
       currentReel.videoUrl.includes('photos.app.goo.gl'));
 
-  const formatReelNumber = (id: number) => `REEL ${String(id).padStart(2, '0')}`;
-
   // 3D Story Flip Transform
   const getCardTransformStyle = () => {
     if (isDragging) {
@@ -623,7 +651,7 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
       }}
       role="dialog"
       aria-modal="true"
-      aria-label={`${formatReelNumber(currentReel.id)}: ${currentReel.title}`}
+      aria-label={currentReel.title}
     >
       {/* Real-time Horizontal Drag Indicator Pill */}
       {isDragging && gestureDirection === 'horizontal' && Math.abs(dragX) > 18 && (
@@ -671,7 +699,7 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
       <button
         type="button"
         onClick={handleClose}
-        className="fixed top-3 right-3 sm:top-5 sm:right-5 z-50 w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white border border-white/20 backdrop-blur-md flex items-center justify-center shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95"
+        className="fixed top-[max(0.75rem,env(safe-area-inset-top,0px))] right-[max(0.75rem,env(safe-area-inset-right,0px))] sm:top-5 sm:right-5 z-50 w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white border border-white/20 backdrop-blur-md flex items-center justify-center shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95"
         aria-label="Close viewer (Esc)"
         title="Close viewer (Esc)"
       >
@@ -861,10 +889,7 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
           {/* Top Bar Header */}
           <div className="flex items-center justify-between pt-0.5">
             <div className="flex items-center gap-2 pointer-events-auto">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-sans font-bold tracking-wider uppercase bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-xs">
-                {formatReelNumber(currentReel.id)}
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-mono text-white/80 bg-black/30 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
+              <span className="text-[10px] sm:text-[11px] font-mono text-white/90 bg-black/40 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-white/20 shadow-xs">
                 {currentIndex + 1} / {activeReels.length}
               </span>
             </div>
@@ -884,7 +909,7 @@ export const VintageReelModal: React.FC<VintageReelModalProps> = ({
         {/* =================================================================== */}
         {/* BOTTOM OVERLAY: TITLE, CAPTION, DEDICATION & LIKE BUTTON           */}
         {/* =================================================================== */}
-        <div className="relative z-30 pt-16 pb-3 sm:pb-4 px-3 sm:px-4 bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none">
+        <div className="relative z-30 pt-16 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:pb-4 px-3 sm:px-4 bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none">
           {/* Custom Interactive Video Progress Bar with live feedback */}
           {hasVideo && (
             <div className="pointer-events-auto pb-2">

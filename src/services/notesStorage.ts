@@ -114,6 +114,7 @@ export function loadLittleThings(): LittleThingCard[] {
         return {
           ...configItem,
           ...item,
+          imageUrl: configItem?.imageUrl || item.imageUrl,
           videoUrl: item.videoUrl || configItem?.videoUrl,
           videoPoster: item.videoPoster || configItem?.videoPoster,
           videoTitle: item.videoTitle || configItem?.videoTitle,

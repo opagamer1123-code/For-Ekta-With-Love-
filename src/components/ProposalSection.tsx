@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Heart,
   Sparkles,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { proposalConfig } from '../config/proposalConfig';
 import { HeartConfettiCelebration } from './HeartConfettiCelebration';
+import { fireProposalConfetti, fireDiaryCompletionConfetti } from '../services/confetti';
 
 type ProposalAnswer = 'yes' | 'time' | 'friend' | null;
 
@@ -22,14 +23,12 @@ interface ProposalSectionProps {
   onBackToLetter: () => void;
   onPrevPage?: () => void;
   onGoHome?: () => void;
-  onOpenOwnerDashboard?: () => void;
 }
 
 export const ProposalSection: React.FC<ProposalSectionProps> = ({
   onBackToLetter,
   onPrevPage,
   onGoHome,
-  onOpenOwnerDashboard,
 }) => {
   const [selectedAnswer, setSelectedAnswer] = useState<ProposalAnswer>(null);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -51,6 +50,76 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
   const [marriageError, setMarriageError] = useState<string | null>(null);
   const [submittedAnswerText, setSubmittedAnswerText] = useState('');
 
+  // Particle-based confetti effect triggered only once upon reaching the very end
+  const bottomSentinelRef = useRef<HTMLDivElement | null>(null);
+  const hasTriggeredCompletionConfetti = useRef<boolean>(false);
+  const [showCompletionReward, setShowCompletionReward] = useState(false);
+
+  useEffect(() => {
+    // Check if completion has already been celebrated in this session
+    try {
+      if (sessionStorage.getItem('for_ekta_diary_completed_celebrated') === 'true') {
+        hasTriggeredCompletionConfetti.current = true;
+        setShowCompletionReward(true);
+        return;
+      }
+    } catch {}
+
+    const el = bottomSentinelRef.current;
+    if (!el) return;
+
+    const triggerCompletionReward = () => {
+      if (hasTriggeredCompletionConfetti.current) return;
+      hasTriggeredCompletionConfetti.current = true;
+      try {
+        sessionStorage.setItem('for_ekta_diary_completed_celebrated', 'true');
+      } catch {}
+
+      fireDiaryCompletionConfetti();
+      setShowCompletionReward(true);
+    };
+
+    if (!('IntersectionObserver' in window)) {
+      const timer = setTimeout(triggerCompletionReward, 1200);
+      return () => clearTimeout(timer);
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting) {
+          triggerCompletionReward();
+          observer.disconnect();
+        }
+      },
+      {
+        root: null,
+        threshold: 0.15,
+      }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const getReadingDurationSummary = (): string | undefined => {
+    try {
+      const storySecs = parseInt(localStorage.getItem('ekta_story_reading_seconds') || '0', 10);
+      const letterSecs = parseInt(localStorage.getItem('ekta_letter_reading_seconds') || '0', 10);
+      const total = storySecs + letterSecs;
+      if (total <= 0) return undefined;
+      const mins = Math.floor(total / 60);
+      const secs = total % 60;
+      if (mins === 0) return `${secs} seconds`;
+      return `${mins} minute${mins > 1 ? 's' : ''}${secs > 0 ? ` and ${secs} second${secs > 1 ? 's' : ''}` : ''}`;
+    } catch {
+      return undefined;
+    }
+  };
+
   const handleSelectAnswer = async (ans: ProposalAnswer) => {
     if (!ans) return;
     if (isSubmitting) return;
@@ -65,6 +134,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
     if (ans === 'yes') {
       // For YES: Launch celebration confetti, show the universe/marriage question with text box
       setShowCelebration(true);
+      fireProposalConfetti();
       return;
     }
 
@@ -72,6 +142,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
     setShowCelebration(false);
     setIsSubmitting(true);
     const answerLabel = proposalConfig.proposal.options[ans].label;
+    const readingDuration = getReadingDurationSummary();
 
     try {
       const response = await fetch('/api/proposal/submit-response', {
@@ -79,6 +150,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           proposalChoice: answerLabel,
+          readingDuration,
         }),
       });
 
@@ -132,6 +204,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
         body: JSON.stringify({
           proposalChoice: proposalConfig.proposal.options.yes.label,
           marriageAnswer: trimmed,
+          readingDuration: getReadingDurationSummary(),
         }),
       });
 
@@ -141,6 +214,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
         setMarriageSuccess(true);
         setSubmittedAnswerText(trimmed);
         setShowCelebration(true);
+        fireProposalConfetti();
       } else {
         setMarriageError(
           result.error || 'Unable to send your answer at this moment. Please try again. ♡'
@@ -291,7 +365,7 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
                       placeholder="Write your answer here, from the bottom of your heart... ♡"
                       rows={5}
                       disabled={isSendingMarriage}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-[#FFFDF8] border-2 border-[#E2A9B8] focus:border-[#A64D68] focus:ring-3 focus:ring-[#A64D68]/20 focus:outline-hidden text-sm sm:text-base text-[#4A1D2B] placeholder:text-[#B3929C] transition-all resize-y shadow-inner font-sans leading-relaxed"
+                      className="w-full px-4 py-3.5 rounded-2xl bg-[#FFFDF8] border-2 border-[#E2A9B8] focus:border-[#A64D68] focus:ring-3 focus:ring-[#A64D68]/20 focus:outline-hidden text-base text-[#4A1D2B] placeholder:text-[#B3929C] transition-all resize-y shadow-inner font-sans leading-relaxed"
                     />
                   </div>
 
@@ -358,7 +432,10 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
                   <div className="text-center pt-2">
                     <button
                       type="button"
-                      onClick={() => setShowCelebration(true)}
+                      onClick={() => {
+                        setShowCelebration(true);
+                        fireProposalConfetti();
+                      }}
                       className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#A64D68] hover:bg-[#8E3E56] text-white text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer"
                     >
                       <Sparkles className="w-4 h-4 text-[#F8DCE5]" aria-hidden="true" />
@@ -490,19 +567,6 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
           <div className="text-xs text-[#9A817B] font-letter italic">
             Dedicated Page 6 of 6 · Questions ♡
           </div>
-          {onOpenOwnerDashboard && (
-            <>
-              <span className="text-[#9A817B]/40" aria-hidden="true">·</span>
-              <button
-                onClick={onOpenOwnerDashboard}
-                className="text-xs text-[#9A817B] hover:text-[#A64D68] inline-flex items-center gap-1 cursor-pointer transition-colors"
-                title="Open Owner's Dashboard"
-              >
-                <Lock className="w-3 h-3 text-[#A64D68]" />
-                <span>Owner's Dashboard</span>
-              </button>
-            </>
-          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -522,6 +586,25 @@ export const ProposalSection: React.FC<ProposalSectionProps> = ({
           )}
         </div>
       </div>
+
+      {/* Joyful reward badge for completing the diary */}
+      {showCompletionReward && (
+        <div className="mt-8 mb-2 max-w-md mx-auto text-center animate-in fade-in zoom-in-95 duration-700">
+          <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#FFF8ED] via-[#FFF5F8] to-[#FFF8ED] border border-[#C7A66A]/80 text-[#5A3545] shadow-xs text-xs font-serif">
+            <Sparkles className="w-4 h-4 text-[#C7A66A] fill-current animate-pulse shrink-0" />
+            <span className="font-semibold text-[#A64D68]">Diary Completed ♡</span>
+            <span className="text-[#9A817B]">· Thank you for reading every word</span>
+          </div>
+        </div>
+      )}
+
+      {/* Sentinel for detecting the very end of the proposal section */}
+      <div
+        ref={bottomSentinelRef}
+        id="diary-completion-sentinel"
+        className="w-full h-8 pointer-events-none"
+        aria-hidden="true"
+      />
     </section>
   );
 };

@@ -21,6 +21,26 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
   onSealClick,
   disabled = false,
 }) => {
+  const [flapFoldedBack, setFlapFoldedBack] = React.useState(false);
+
+  React.useEffect(() => {
+    if (phase === 'flap-opening') {
+      // Flap rotates 180deg over 800ms. After ~380ms it passes 90deg and folds behind the back wall.
+      const timer = setTimeout(() => {
+        setFlapFoldedBack(true);
+      }, 380);
+      return () => clearTimeout(timer);
+    } else if (
+      phase === 'letter-sliding' ||
+      phase === 'letter-reveal' ||
+      phase === 'revealed'
+    ) {
+      setFlapFoldedBack(true);
+    } else {
+      setFlapFoldedBack(false);
+    }
+  }, [phase]);
+
   const isFlapOpened =
     phase === 'flap-opening' ||
     phase === 'letter-sliding' ||
@@ -40,7 +60,7 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
 
   return (
     <div
-      className="relative w-full max-w-[340px] sm:max-w-[400px] md:max-w-[430px] h-[230px] sm:h-[260px] md:h-[275px] mx-auto select-none my-6 sm:my-8"
+      className="relative w-full max-w-[min(340px,calc(100vw-2rem))] sm:max-w-[400px] md:max-w-[430px] h-[220px] xs:h-[235px] sm:h-[260px] md:h-[275px] mx-auto select-none my-4 sm:my-8"
       style={{ perspective: '1400px' }}
       aria-label="Realistic 3D physical envelope for Ekta"
     >
@@ -52,7 +72,7 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
 
       {/* Floating Rose Petals bursting as the envelope flap opens and letter emerges */}
       {(phase === 'flap-opening' || phase === 'letter-sliding') && (
-        <div className="absolute inset-0 pointer-events-none z-40 overflow-visible" aria-hidden="true">
+        <div className="absolute inset-0 pointer-events-none z-50 overflow-visible" aria-hidden="true">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
@@ -76,13 +96,13 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
         </div>
       )}
 
-      {/* 2. Main Physical Envelope Assembly (overflow-visible so 3D flap and sliding letter emerge naturally) */}
+      {/* 2. Main Physical Envelope Assembly */}
       <div className="relative w-full h-full overflow-visible">
 
         {/* ========================================================================= */}
-        {/* LAYER A: BACK PLATE (z-index: 1) - Inside wall with authentic paper fiber */}
+        {/* LAYER A: BACK PLATE (z-index: 4) - Inside back wall of the envelope        */}
         {/* ========================================================================= */}
-        <div className="absolute inset-0 bg-[#FFFDF9] rounded-2xl border border-[rgba(166,77,104,0.22)] shadow-[0_18px_40px_rgba(90,53,69,0.15)] z-[1] overflow-hidden">
+        <div className="absolute inset-0 bg-[#FFFDF9] rounded-2xl border border-[rgba(166,77,104,0.22)] shadow-[0_18px_40px_rgba(90,53,69,0.15)] z-[4] overflow-hidden">
           {/* Subtle interior watermark on the back wall */}
           <div
             className="absolute inset-0 bg-gradient-to-b from-[#F9E5EC]/45 via-[#FFF8ED]/35 to-[#FFFDF9]"
@@ -103,25 +123,29 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
 
         {/* ========================================================================= */}
         {/* LAYER B: THE 3D ROTATING TRIANGULAR TOP FLAP                              */}
-        {/* Rotates backwards around its fold line (top: 0) from 0deg to 180deg       */}
-        {/* Double-sided: outer face visible when closed, inner face visible when open */}
+        {/* - Rotates backwards around top hinge from 0deg to 180deg                  */}
+        {/* - Stays in front (z: 30) while swinging 0-90deg, then drops behind (z: 2) */}
+        {/*   when folded back >90deg so it rests naturally behind the back plate     */}
         {/* ========================================================================= */}
         <div
-          className={`absolute top-0 left-0 right-0 h-[142px] origin-top transition-transform duration-1000 ease-[cubic-bezier(0.32,0.85,0.45,1.02)] ${
-            isFlapOpened
-              ? '[transform:rotateX(180deg)] z-[2]'
-              : '[transform:rotateX(0deg)] z-[25]'
-          }`}
+          className="absolute top-0 left-0 right-0 h-[142px]"
           style={{
             transformStyle: 'preserve-3d',
             transformOrigin: '50% 0%',
+            transform: isFlapOpened ? 'rotateX(180deg)' : 'rotateX(0deg)',
+            transition: 'transform 800ms cubic-bezier(0.35, 0, 0.25, 1)',
+            zIndex: flapFoldedBack ? 2 : 30,
           }}
           aria-hidden="true"
         >
           {/* FACE 1: OUTER FLAP (Facing front when closed) */}
           <div
-            className="absolute inset-0 [backface-visibility:hidden]"
-            style={{ transform: 'rotateX(0deg)' }}
+            className="absolute inset-0"
+            style={{
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              transform: 'rotateX(0deg)',
+            }}
           >
             <svg
               className="w-full h-full drop-shadow-[0_4px_10px_rgba(90,53,69,0.12)]"
@@ -159,8 +183,12 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
 
           {/* FACE 2: INNER FLAP LINING (Becomes visible when folded 180° backwards) */}
           <div
-            className="absolute inset-0 [backface-visibility:hidden]"
-            style={{ transform: 'rotateX(180deg)' }}
+            className="absolute inset-0"
+            style={{
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              transform: 'rotateX(180deg)',
+            }}
           >
             <svg
               className="w-full h-full drop-shadow-[0_-4px_12px_rgba(90,53,69,0.08)]"
@@ -201,17 +229,17 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
         </div>
 
         {/* ========================================================================= */}
-        {/* LAYER C: THE LETTER SHEET (z-index: 6)                                    */}
-        {/* Nested inside the envelope pocket behind front folds (z: 12)              */}
-        {/* Slides up in 2 stages: emerges 40% with brief pause, then fully emerges  */}
+        {/* LAYER C: THE LETTER SHEET (z-index: 10)                                   */}
+        {/* - Stays INSIDE the envelope pocket (z: 10) beneath front pocket (z: 20)   */}
+        {/* - Slides upwards gracefully out of the opening with bottom still tucked   */}
         {/* ========================================================================= */}
         <div
-          className={`absolute left-4 sm:left-6 right-4 sm:right-6 h-[225px] sm:h-[245px] md:h-[260px] bg-[#FFFDF8] rounded-t-xl border border-[rgba(166,77,104,0.24)] p-4 sm:p-5 z-[6] select-none transition-all duration-700 ease-out ${
+          className={`absolute left-4 sm:left-6 right-4 sm:right-6 h-[225px] sm:h-[245px] md:h-[260px] bg-[#FFFDF8] rounded-t-xl border border-[rgba(166,77,104,0.24)] p-4 sm:p-5 z-[10] select-none transition-all duration-700 ease-out ${
             isLetterRevealed
-              ? '-translate-y-[210px] sm:-translate-y-[240px] md:-translate-y-[260px] scale-[1.04] shadow-[0_20px_45px_rgba(90,53,69,0.22)] opacity-100 z-[28]'
+              ? '-translate-y-[190px] sm:-translate-y-[220px] md:-translate-y-[245px] scale-[1.02] shadow-[0_22px_45px_rgba(90,53,69,0.22)] ring-1 ring-[#F8DCE5]/70 opacity-100'
               : isLetterSliding
-              ? 'animate-[letterPhysicalSlide_1.2s_cubic-bezier(0.25,0.9,0.3,1)_forwards] shadow-[0_12px_28px_rgba(90,53,69,0.18)] z-[28]'
-              : 'top-6 translate-y-0 opacity-95 shadow-[0_-2px_10px_rgba(90,53,69,0.06)]'
+              ? 'animate-[letterPhysicalSlide_0.9s_cubic-bezier(0.25,1,0.5,1)_forwards] shadow-[0_12px_28px_rgba(90,53,69,0.18)]'
+              : 'top-7 sm:top-8 translate-y-0 opacity-95 shadow-[0_-2px_10px_rgba(90,53,69,0.06)]'
           }`}
           style={{
             transformStyle: 'preserve-3d',
@@ -257,10 +285,10 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
         </div>
 
         {/* ========================================================================= */}
-        {/* LAYER D: ENVELOPE FRONT POCKET (z-index: 12)                              */}
-        {/* Triangular folds that overlap the bottom and sides of the letter sheet    */}
+        {/* LAYER D: ENVELOPE FRONT POCKET (z-index: 20)                              */}
+        {/* Overlaps front of the letter sheet, creating realistic pocket containment */}
         {/* ========================================================================= */}
-        <div className="absolute inset-0 pointer-events-none z-[12]">
+        <div className="absolute inset-0 pointer-events-none z-[20]">
           <svg
             className="w-full h-full"
             viewBox="0 0 420 270"
@@ -547,35 +575,43 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
           }
         }
 
-        /* Letter sliding in two distinct natural stages with brief anticipation pause */
+        /* Letter sliding smoothly out of the envelope pocket with gentle natural easing */
         @keyframes letterPhysicalSlide {
           0% {
-            transform: translateY(0px) scale(0.98);
+            transform: translateY(0px) scale(1);
+            opacity: 0.95;
           }
-          38% {
-            transform: translateY(-90px) scale(1);
+          40% {
+            transform: translateY(-75px) scale(1.005);
+            opacity: 1;
           }
-          58% {
-            transform: translateY(-94px) scale(1.005);
+          55% {
+            transform: translateY(-78px) scale(1.01);
+            opacity: 1;
           }
           100% {
-            transform: translateY(-220px) scale(1.04);
+            transform: translateY(-190px) scale(1.02);
+            opacity: 1;
           }
         }
 
         @media (min-width: 640px) {
           @keyframes letterPhysicalSlide {
             0% {
-              transform: translateY(0px) scale(0.98);
+              transform: translateY(0px) scale(1);
+              opacity: 0.95;
             }
-            38% {
-              transform: translateY(-105px) scale(1);
+            40% {
+              transform: translateY(-90px) scale(1.005);
+              opacity: 1;
             }
-            58% {
-              transform: translateY(-110px) scale(1.005);
+            55% {
+              transform: translateY(-93px) scale(1.01);
+              opacity: 1;
             }
             100% {
-              transform: translateY(-245px) scale(1.04);
+              transform: translateY(-220px) scale(1.02);
+              opacity: 1;
             }
           }
         }
@@ -583,16 +619,20 @@ export const EnvelopeIllustration: React.FC<EnvelopeIllustrationProps> = ({
         @media (min-width: 768px) {
           @keyframes letterPhysicalSlide {
             0% {
-              transform: translateY(0px) scale(0.98);
+              transform: translateY(0px) scale(1);
+              opacity: 0.95;
             }
-            38% {
-              transform: translateY(-115px) scale(1);
+            40% {
+              transform: translateY(-100px) scale(1.005);
+              opacity: 1;
             }
-            58% {
-              transform: translateY(-120px) scale(1.005);
+            55% {
+              transform: translateY(-104px) scale(1.01);
+              opacity: 1;
             }
             100% {
-              transform: translateY(-265px) scale(1.04);
+              transform: translateY(-245px) scale(1.02);
+              opacity: 1;
             }
           }
         }

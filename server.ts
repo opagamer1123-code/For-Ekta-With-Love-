@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import http from 'http';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -124,6 +125,7 @@ interface ProposalSubmissionPayload {
   proposalChoice: string;
   submittedAt: string;
   marriageAnswer?: string;
+  readingDuration?: string;
 }
 
 export interface RecentDispatchRecord {
@@ -131,6 +133,7 @@ export interface RecentDispatchRecord {
   submissionRef: string;
   proposalChoice: string;
   marriageAnswer?: string;
+  readingDuration?: string;
   submittedAt: string;
   status: 'saved' | 'email_queued' | 'delivered' | 'failed';
   error?: string;
@@ -184,7 +187,7 @@ ${sub.marriageAnswer}
 SUBMISSION DETAILS
 ============================================================
 Reference ID:  ${sub.submissionRef}
-Submitted At:  ${formattedDateIST} (IST)
+${sub.readingDuration ? `Time Spent Reading: ${sub.readingDuration}\n` : ''}Submitted At:  ${formattedDateIST} (IST)
 UTC Timestamp: ${formattedDateUTC}
 Stored securely in Firebase Firestore (${getEmailConfig().projectId})
 `
@@ -203,7 +206,7 @@ Ekta has selected this response to your proposal on the website.
 SUBMISSION DETAILS
 ============================================================
 Reference ID:  ${sub.submissionRef}
-Submitted At:  ${formattedDateIST} (IST)
+${sub.readingDuration ? `Time Spent Reading: ${sub.readingDuration}\n` : ''}Submitted At:  ${formattedDateIST} (IST)
 UTC Timestamp: ${formattedDateUTC}
 Stored securely in Firebase Firestore (${getEmailConfig().projectId})
 `;
@@ -376,6 +379,15 @@ Stored securely in Firebase Firestore (${getEmailConfig().projectId})
       </div>
       `
       }
+      ${
+        sub.readingDuration
+          ? `
+      <div style="text-align: center; margin-top: 18px; padding: 12px 18px; background-color: #FFFDF9; border-radius: 14px; border: 1px solid #F8DCE5; font-size: 13px; color: #5A3545;">
+        <strong>Time Spent Reading:</strong> <span style="color: #A64D68; font-weight: 600;">${escapeHtml(sub.readingDuration)}</span> ♡
+      </div>
+      `
+          : ''
+      }
     </div>
 
     <div class="footer">
@@ -433,6 +445,7 @@ async function recordProposalInFirestore(payload: ProposalSubmissionPayload): Pr
         submissionRef: payload.submissionRef,
         proposalChoice: payload.proposalChoice,
         ...(payload.marriageAnswer ? { marriageAnswer: payload.marriageAnswer } : {}),
+        ...(payload.readingDuration ? { readingDuration: payload.readingDuration } : {}),
         submittedAt: payload.submittedAt,
         status: 'email_queued',
         mailDocId,
@@ -467,6 +480,7 @@ async function recordProposalInFirestore(payload: ProposalSubmissionPayload): Pr
     submissionRef: payload.submissionRef,
     proposalChoice: payload.proposalChoice,
     marriageAnswer: payload.marriageAnswer,
+    readingDuration: payload.readingDuration,
     submittedAt: payload.submittedAt,
     status: saved ? (emailQueued ? 'email_queued' : 'saved') : 'failed',
     mailDocId,
@@ -729,8 +743,174 @@ async function recordReelLikeInFirestore(payload: ReelLikePayload): Promise<{
 }
 
 // -----------------------------------------------------------------------------
+// Reading Time Email Generator
+// -----------------------------------------------------------------------------
+function generateReadingTimeEmailContent(payload: {
+  section: string;
+  seconds: number;
+  formattedDuration: string;
+}) {
+  const formattedDateIST = new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'full',
+    timeStyle: 'long',
+  });
+  const formattedDateUTC = new Date().toUTCString();
+  const subject = `Ekta finished reading your letter! (Time: ${payload.formattedDuration}) ♡`;
+
+  const textContent = `A Reading Update From Ekta ♡
+For Ekta, With Love
+
+Ekta has just finished reading "${payload.section}"!
+
+============================================================
+TOTAL TIME SHE TOOK TO READ:
+${payload.formattedDuration} (${payload.seconds} seconds)
+============================================================
+
+Section: ${payload.section}
+Finished At: ${formattedDateIST} (IST)
+UTC Timestamp: ${formattedDateUTC}
+
+She took her time reading every word and page you wrote for her. ♡
+`;
+
+  const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #FFF8ED; color: #5A3545; margin: 0; padding: 24px; }
+    .container { max-width: 520px; margin: 0 auto; background: #FFFDF9; border: 1px solid #F8DCE5; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(90,53,69,0.08); }
+    .header { background: linear-gradient(135deg, #FFF5F8 0%, #FFF8ED 100%); padding: 32px 24px; text-align: center; border-bottom: 1px solid #F8DCE5; }
+    .badge { display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 50%; background: #A64D68; color: #fff; font-size: 20px; margin-bottom: 12px; }
+    .title { font-family: Georgia, serif; font-size: 24px; color: #5A3545; margin: 0 0 6px 0; }
+    .subtitle { font-size: 13px; color: #9A817B; margin: 0; font-style: italic; }
+    .body { padding: 28px 24px; }
+    .card { background: #FFF5F8; border: 1.5px solid #E2A9B8; border-radius: 18px; padding: 22px 24px; text-align: center; margin-bottom: 20px; }
+    .card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #9A817B; font-weight: 700; margin-bottom: 6px; }
+    .card-title { font-family: Georgia, serif; font-size: 26px; color: #A64D68; font-weight: 700; margin: 0; }
+    .meta-box { background: #FFFDF9; border: 1px solid #F8DCE5; border-radius: 14px; padding: 14px 18px; font-size: 13px; color: #5A3545; line-height: 1.6; }
+    .closing { margin-top: 20px; font-style: italic; font-size: 14px; color: #A64D68; text-align: center; }
+    .footer { padding: 18px 24px; text-align: center; font-size: 11px; color: #9A817B; border-top: 1px solid #F8DCE5; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="badge">📖</div>
+      <h1 class="title">Ekta Finished Reading Your Letter! ♡</h1>
+      <p class="subtitle">A Story Written for Ekta · Chapter 2</p>
+    </div>
+    <div class="body">
+      <p style="font-size: 15px; margin: 0 0 20px 0; color: #5A3545; text-align: center;">
+        Ekta just turned through all the pages and completed reading your letter!
+      </p>
+      <div class="card">
+        <div class="card-label">TOTAL TIME SHE TOOK TO READ</div>
+        <p class="card-title">${escapeHtml(payload.formattedDuration)} ♡</p>
+      </div>
+      <div class="meta-box">
+        <strong>Section:</strong> ${escapeHtml(payload.section)}<br/>
+        <strong>Finished At:</strong> ${escapeHtml(formattedDateIST)}<br/>
+        <span style="font-size: 11px; color: #9A817B;">(${escapeHtml(formattedDateUTC)})</span>
+      </div>
+      <p class="closing">
+        She absorbed every word and memory you wrote for her with heartfelt care. ♡
+      </p>
+    </div>
+    <div class="footer">
+      For Ekta, With Love · Reading Progress Notification
+    </div>
+  </div>
+</body>
+</html>`;
+
+  return { subject, textContent, htmlContent };
+}
+
+// -----------------------------------------------------------------------------
 // Server-Side API Routes (Firebase Firestore & Trigger Email)
 // -----------------------------------------------------------------------------
+
+// Report reading time and send notification email to the owner
+app.post('/api/reading-time/report', async (req: Request, res: Response) => {
+  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
+
+  if (isRateLimited(clientIp)) {
+    return res.status(429).json({ success: false, error: 'Too many requests.' });
+  }
+
+  try {
+    const { section, seconds, formattedDuration } = req.body;
+    const secName = typeof section === 'string' && section.trim() ? section.trim() : 'My Letter for Ekta';
+    const totalSecs = typeof seconds === 'number' ? Math.max(0, Math.floor(seconds)) : 0;
+    const durationStr = typeof formattedDuration === 'string' && formattedDuration.trim()
+      ? formattedDuration.trim()
+      : `${totalSecs} seconds`;
+
+    // Only email if she actually spent time reading (at least 5 seconds)
+    if (totalSecs < 5) {
+      return res.status(200).json({ success: true, message: 'Reading duration noted' });
+    }
+
+    const config = getEmailConfig();
+    const { subject, textContent, htmlContent } = generateReadingTimeEmailContent({
+      section: secName,
+      seconds: totalSecs,
+      formattedDuration: durationStr,
+    });
+
+    let emailQueued = false;
+    let mailDocId: string | undefined;
+
+    if (db) {
+      try {
+        const mailDocRef = doc(collection(db, 'mail'));
+        mailDocId = mailDocRef.id;
+        await setDoc(mailDocRef, {
+          to: config.recipient,
+          type: 'reading_time',
+          message: {
+            subject,
+            text: textContent,
+            html: htmlContent,
+          },
+          createdAt: new Date().toISOString(),
+        });
+        emailQueued = true;
+      } catch (err: any) {
+        console.error('Firestore reading time email error:', err?.message || err);
+      }
+    }
+
+    if (config.hasSmtp) {
+      try {
+        const transporter = nodemailer.createTransport(config.smtpUri);
+        await transporter.sendMail({
+          from: config.senderEmail,
+          to: config.recipient,
+          subject,
+          text: textContent,
+          html: htmlContent,
+        });
+        emailQueued = true;
+      } catch (smtpErr: any) {
+        console.warn('SMTP direct dispatch warning for reading time:', smtpErr?.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      emailQueued,
+      mailDocId,
+      message: 'Reading time recorded and notification sent with love ♡',
+    });
+  } catch (err: unknown) {
+    console.error('Error reporting reading time:', err);
+    return res.status(200).json({ success: true, message: 'Processed with fallback' });
+  }
+});
 
 // Health check
 app.get('/api/health', (_req: Request, res: Response) => {
@@ -759,7 +939,7 @@ app.post('/api/proposal/submit-response', async (req: Request, res: Response) =>
   }
 
   try {
-    const { proposalChoice } = req.body;
+    const { proposalChoice, readingDuration } = req.body;
     const choice = typeof proposalChoice === 'string' ? proposalChoice.trim() : '';
 
     if (!choice) {
@@ -774,6 +954,9 @@ app.post('/api/proposal/submit-response', async (req: Request, res: Response) =>
       submissionRef,
       proposalChoice: choice,
       submittedAt,
+      ...(typeof readingDuration === 'string' && readingDuration.trim()
+        ? { readingDuration: readingDuration.trim() }
+        : {}),
     };
 
     const result = await recordProposalInFirestore(payload);
@@ -806,7 +989,7 @@ app.post('/api/proposal/submit-marriage', async (req: Request, res: Response) =>
   }
 
   try {
-    const { proposalChoice, marriageAnswer, question2, answer } = req.body;
+    const { proposalChoice, marriageAnswer, question2, answer, readingDuration } = req.body;
     const choice =
       typeof proposalChoice === 'string' && proposalChoice.trim()
         ? proposalChoice.trim()
@@ -844,6 +1027,9 @@ app.post('/api/proposal/submit-marriage', async (req: Request, res: Response) =>
       proposalChoice: choice,
       marriageAnswer: submittedAnswer,
       submittedAt,
+      ...(typeof readingDuration === 'string' && readingDuration.trim()
+        ? { readingDuration: readingDuration.trim() }
+        : {}),
     };
 
     const result = await recordProposalInFirestore(payload);
@@ -1125,11 +1311,15 @@ app.post('/api/owner/test-email', async (req: Request, res: Response) => {
 // -----------------------------------------------------------------------------
 async function startServer() {
   const isDev = process.env.NODE_ENV !== 'production';
+  const httpServer = http.createServer(app);
 
   if (isDev) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        ws: { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -1143,7 +1333,7 @@ async function startServer() {
     }
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server listening on http://0.0.0.0:${PORT} (Firebase Firestore & Trigger Email Integration)`);
   });
 }

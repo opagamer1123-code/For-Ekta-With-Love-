@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Feather, Volume2, VolumeX, Printer, Scroll } from 'lucide-react';
+import { Feather, Volume2, VolumeX, Printer, Scroll, Clock } from 'lucide-react';
 import { letterStoryPages } from '../config/ektaStoryConfig';
 import { PageTurnBook, BookChapterData } from './PageTurnBook';
 import { paperFlipAudio } from '../services/paperSound';
@@ -13,6 +13,36 @@ interface LoveLetterProps {
 export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevSection }) => {
   const [isSoundEnabled, setIsSoundEnabled] = useState(() => !paperFlipAudio.getIsMuted());
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [readingSeconds, setReadingSeconds] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ekta_letter_reading_seconds');
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setReadingSeconds((prev) => {
+        const next = prev + 1;
+        try {
+          localStorage.setItem('ekta_letter_reading_seconds', next.toString());
+        } catch {}
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatReadingTime = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const remainingSecs = secs % 60;
+    if (mins === 0) {
+      return `${remainingSecs}s`;
+    }
+    return `${mins}m ${remainingSecs.toString().padStart(2, '0')}s`;
+  };
 
   useEffect(() => {
     return paperFlipAudio.subscribe((muted) => {
@@ -33,6 +63,24 @@ export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevS
     paperFlipAudio.toggleMute();
   };
 
+  const handleCompleteLetter = () => {
+    // Send email with total time taken to read the letter
+    if (readingSeconds >= 5) {
+      try {
+        fetch('/api/reading-time/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            section: 'Chapter 2: My Letter for Ekta',
+            seconds: readingSeconds,
+            formattedDuration: formatReadingTime(readingSeconds),
+          }),
+        }).catch(() => {});
+      } catch {}
+    }
+    onContinueStory();
+  };
+
   return (
     <section
       id="letter-section"
@@ -41,13 +89,21 @@ export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevS
       aria-label="My Letter for Ekta"
     >
       {/* Decorative floral ribbon header */}
-      <div className="flex items-center justify-center gap-3 mb-6">
+      <div className="flex items-center justify-center gap-3 mb-2.5">
         <span className="h-px w-12 sm:w-16 bg-gradient-to-r from-transparent to-[#A64D68]/40" />
         <span className="flex items-center gap-2 font-handwriting text-2xl sm:text-3xl text-[#A64D68]">
           <Feather className="w-5 h-5 text-[#A64D68]" />
           My Letter for Ekta ♡
         </span>
         <span className="h-px w-12 sm:w-16 bg-gradient-to-l from-transparent to-[#A64D68]/40" />
+      </div>
+
+      {/* Live Reading Time Count (No limit, measuring how much time she takes to read) */}
+      <div className="flex items-center justify-center mb-5">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-serif text-[#8E5265] bg-[#FFF5F8]/90 border border-[#F8DCE5] shadow-2xs">
+          <Clock className="w-3.5 h-3.5 text-[#A64D68]" />
+          <span>Reading time: {formatReadingTime(readingSeconds)} ♡</span>
+        </span>
       </div>
 
       <div className="text-center max-w-xl mx-auto mb-8">
@@ -95,7 +151,7 @@ export const LoveLetter: React.FC<LoveLetterProps> = ({ onContinueStory, onPrevS
         sectionTitle="Page"
         badgeLabel="Personal Letter"
         completeButtonText="Next: Moments in Motion ♡"
-        onComplete={onContinueStory}
+        onComplete={handleCompleteLetter}
         onReturnHome={onPrevSection}
       />
 

@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
 import { FloatingPetals } from './components/FloatingPetals';
 import { HeartCursorTrail } from './components/HeartCursorTrail';
 import { OpeningEnvelope } from './components/OpeningEnvelope';
@@ -15,10 +14,11 @@ import { ProposalSection } from './components/ProposalSection';
 import { NoOneElseSection } from './components/NoOneElseSection';
 import { PrivacyNoticeModal } from './components/PrivacyNoticeModal';
 import { OwnerDashboardModal } from './components/OwnerDashboardModal';
+import { MobileChapterBar } from './components/MobileChapterBar';
 import { DiaryNote } from './types/notes';
 import { loadNotesFromStorage, saveNotesToStorage } from './services/notesStorage';
 import { romanticAudio } from './services/soundtrack';
-import { Heart, ChevronRight, BookOpen, Feather, Sparkles, Smile, Lock } from 'lucide-react';
+import { Heart } from 'lucide-react';
 
 export type AppPage =
   | 'home'
@@ -65,6 +65,10 @@ export default function App() {
     if (error) {
       setStorageError(error);
     }
+    // Discreet owner access via query string (?owner=true or ?admin=true)
+    if (typeof window !== 'undefined' && (window.location.search.includes('owner=') || window.location.search.includes('admin='))) {
+      setIsOwnerDashboardOpen(true);
+    }
   }, []);
 
   // Listen for browser back / forward hash changes
@@ -89,9 +93,24 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // When Ekta arrives at Chapter 6 ("Questions"), play Dil Se Dil at 15% volume
+  useEffect(() => {
+    if (currentPage === 'questions') {
+      romanticAudio.playForChapter6().catch(() => {});
+    }
+  }, [currentPage]);
+
   // Global Keyboard Navigation for PC and TV remote number keys (1 to 6)
+  // + Secret Developer Shortcut: Ctrl + Shift + D (or Cmd + Shift + D)
   useEffect(() => {
     const handleGlobalKey = (e: KeyboardEvent) => {
+      // Secret owner dashboard toggle
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setIsOwnerDashboardOpen((prev) => !prev);
+        return;
+      }
+
       const target = e.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
         return;
@@ -151,21 +170,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const navActiveKey =
-    currentPage === 'home'
-      ? 'envelope-section'
-      : currentPage === 'letter'
-      ? 'letter-section'
-      : currentPage === 'notes'
-      ? notesTab === 'private'
-        ? 'notes-private'
-        : 'notes-shared'
-      : currentPage === 'little-things'
-      ? 'little-things-section'
-      : currentPage === 'no-one-else'
-      ? 'no-one-else-section'
-      : 'proposal-section';
-
   return (
     <div className="min-h-screen bg-[#FFF8ED] text-[#5A3545] relative flex flex-col font-sans selection:bg-[#F8DCE5] selection:text-[#5A3545]">
       {/* Floating Petals and Romantic Sparkles */}
@@ -174,13 +178,6 @@ export default function App() {
       {/* Romantic Custom Cursor Heart Trail */}
       <HeartCursorTrail />
 
-      {/* Persistent Navigation Header with embedded Music Player */}
-      <Navbar
-        activeSection={navActiveKey}
-        onNavigate={(secId, tab) => navigateToPage(secId, tab)}
-        onOpenPrivacyNotice={() => setIsPrivacyNoticeOpen(true)}
-      />
-
       {/* Storage Warning Banner if localStorage is inaccessible */}
       {storageError && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800 text-center">
@@ -188,45 +185,11 @@ export default function App() {
         </div>
       )}
 
-      {/* Dedicated Section Indicator / Story Stage Stepper */}
-      <nav
-        aria-label="Story chapter breadcrumbs"
-        className="bg-[#FFFDF9]/95 border-b border-[#F8DCE5]/80 py-2.5 px-4 sticky top-[72px] z-30 backdrop-blur-xs"
-      >
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2 overflow-x-auto no-scrollbar text-xs">
-          {(['home', 'letter', 'notes', 'little-things', 'no-one-else', 'questions'] as AppPage[]).map((pageKey, idx) => {
-            const meta = pageMetadata[pageKey];
-            const isCurrent = currentPage === pageKey;
-
-            return (
-              <React.Fragment key={pageKey}>
-                <button
-                  onClick={() => navigateToPage(pageKey)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all shrink-0 ${
-                    isCurrent
-                      ? 'bg-[#A64D68] text-white font-semibold shadow-xs scale-102'
-                      : 'text-[#9A817B] hover:text-[#5A3545] hover:bg-[#F8DCE5]/40'
-                  }`}
-                  aria-current={isCurrent ? 'page' : undefined}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
-                      isCurrent ? 'bg-white/20 text-white' : 'bg-[#F8DCE5] text-[#A64D68]'
-                    }`}
-                  >
-                    {meta?.index}
-                  </span>
-                  <span>{meta?.title}</span>
-                </button>
-
-                {idx < 5 && (
-                  <ChevronRight className="w-3.5 h-3.5 text-[#A64D68]/30 shrink-0" aria-hidden="true" />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </nav>
+      {/* Floating Mobile Chapter Navigation Bar */}
+      <MobileChapterBar
+        currentPage={currentPage}
+        onNavigate={navigateToPage}
+      />
 
       {/* Main Experience Content: Render ONLY the Dedicated Page */}
       <main
@@ -287,7 +250,6 @@ export default function App() {
             onBackToLetter={() => navigateToPage('letter')}
             onPrevPage={() => navigateToPage('no-one-else')}
             onGoHome={() => navigateToPage('home')}
-            onOpenOwnerDashboard={() => setIsOwnerDashboardOpen(true)}
           />
         )}
       </main>
@@ -298,25 +260,25 @@ export default function App() {
           <p className="font-handwriting text-xl text-[#A64D68]">
             For Ekta, With All My Heart ♡
           </p>
-          <div className="flex items-center justify-center gap-3 text-[11px] text-[#9A817B] flex-wrap">
-            <span>Page {pageMetadata[currentPage].index} of 6 · {pageMetadata[currentPage].title}</span>
-            <span aria-hidden="true">·</span>
-            <button
-              onClick={() => setIsPrivacyNoticeOpen(true)}
-              className="hover:text-[#A64D68] underline cursor-pointer"
-            >
-              Storage & Privacy Notice
-            </button>
-            <span aria-hidden="true">·</span>
-            <button
-              onClick={() => setIsOwnerDashboardOpen(true)}
-              className="hover:text-[#A64D68] underline inline-flex items-center gap-1 cursor-pointer font-medium"
-              title="Access Owner's Dashboard (Email settings & dispatches)"
-            >
-              <Lock className="w-3 h-3 text-[#A64D68]" />
-              <span>Owner's Dashboard</span>
-            </button>
+          <div className="flex items-center justify-center gap-2 text-[11px] text-[#9A817B] flex-wrap">
+            {(['home', 'letter', 'notes', 'little-things', 'no-one-else', 'questions'] as AppPage[]).map((pKey, i) => (
+              <React.Fragment key={pKey}>
+                <button
+                  type="button"
+                  onClick={() => navigateToPage(pKey)}
+                  className={`hover:text-[#A64D68] transition-colors cursor-pointer ${
+                    currentPage === pKey ? 'font-semibold text-[#A64D68] underline decoration-[#A64D68]/40' : ''
+                  }`}
+                >
+                  {pageMetadata[pKey].title}
+                </button>
+                {i < 5 && <span aria-hidden="true" className="opacity-40">·</span>}
+              </React.Fragment>
+            ))}
           </div>
+          <p className="text-[11px] text-[#9A817B]/80 font-letter italic">
+            Made with all my love, always and forever ♡
+          </p>
         </div>
       </footer>
 

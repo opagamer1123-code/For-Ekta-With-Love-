@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Feather, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import { Heart, Feather, RotateCcw, Volume2, VolumeX, Clock } from 'lucide-react';
 import { EnvelopeIllustration, EnvelopeAnimationPhase } from './EnvelopeIllustration';
 import { PageTurnBook } from './PageTurnBook';
 import { authoritativeStoryChapters } from '../config/ektaStoryConfig';
@@ -20,6 +20,32 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
   const [phase, setPhase] = useState<EnvelopeAnimationPhase>(isOpen ? 'revealed' : 'closed');
   const [isAnimating, setIsAnimating] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(() => paperFlipAudio.getIsMuted());
+  const [storyReadingSeconds, setStoryReadingSeconds] = useState<number>(0);
+
+  // Track how much time she takes to read the unfolded story
+  useEffect(() => {
+    if (phase !== 'revealed') return;
+    const timer = setInterval(() => {
+      setStoryReadingSeconds((prev) => {
+        const next = prev + 1;
+        try {
+          localStorage.setItem('ekta_story_reading_seconds', next.toString());
+        } catch {}
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [phase]);
+
+  const formatReadingTime = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const remainingSecs = secs % 60;
+    if (mins === 0) {
+      return `${remainingSecs}s`;
+    }
+    return `${mins}m ${remainingSecs.toString().padStart(2, '0')}s`;
+  };
 
   // Subscribe to audio mute changes
   useEffect(() => {
@@ -28,46 +54,56 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
     });
   }, []);
 
-  // Coordinated staged cinematic physical opening sequence (3.7 seconds total)
-  // 1. Wax seal press and crack — 0.4s
-  // 2. Wax seal breaking — 0.5s
-  // 3. Envelope flap opening — 1.0s
-  // 4. Letter sliding out — 1.2s
-  // 5. Final letter reveal — 0.6s
+  // Coordinated staged cinematic physical opening sequence (approx 3.0 seconds total)
+  // 1. Wax seal press and crack — 0.35s
+  // 2. Wax seal breaking & sparkles — 0.40s
+  // 3. Envelope flap 3D folding open — 0.80s
+  // 4. Letter sliding out of pocket — 0.90s
+  // 5. Final letter bloom & reveal — 0.50s
   const runOpeningSequence = () => {
     if (isAnimating || phase !== 'closed') return;
 
     setIsAnimating(true);
 
-    // Stage 1: Wax seal press and crack fissure (0.0s - 0.4s)
+    // Reset reading timer fresh to 0 whenever the envelope opening sequence begins
+    setStoryReadingSeconds(0);
+    try {
+      localStorage.setItem('ekta_story_reading_seconds', '0');
+    } catch {}
+
+    // Stage 1: Wax seal press and crack fissure (0.0s - 0.35s)
     setPhase('seal-press');
     paperFlipAudio.playWaxCrack();
 
-    // Stage 2: Wax seal breaking & splitting into fragments (0.4s - 0.9s)
+    // Stage 2: Wax seal breaking & splitting into fragments (0.35s - 0.75s)
     setTimeout(() => {
       setPhase('seal-break');
-    }, 400);
+    }, 350);
 
-    // Stage 3: Triangular flap 3D folds backwards from hinge (0.9s - 1.9s)
+    // Stage 3: Triangular flap 3D folds backwards from hinge (0.75s - 1.55s)
     setTimeout(() => {
       setPhase('flap-opening');
       paperFlipAudio.playFlapOpen();
-    }, 900);
+    }, 750);
 
-    // Stage 4: Letter slides out with gentle pause at ~40% (1.9s - 3.1s)
+    // Stage 4: Letter slides smoothly out of pocket (1.55s - 2.45s)
     setTimeout(() => {
       setPhase('letter-sliding');
       paperFlipAudio.playLetterSlide();
-    }, 1900);
+    }, 1550);
 
-    // Stage 5: Letter reaches full emergence & blooms into focus (3.1s - 3.7s)
+    // Stage 5: Letter reaches full emergence & blooms into focus (2.45s - 2.95s)
     setTimeout(() => {
       setPhase('letter-reveal');
       paperFlipAudio.playLetterUnfold();
-    }, 3100);
+    }, 2450);
 
-    // Stage 6: Seamlessly cross-fade into the page-turn book reading experience (at 3.7s)
+    // Stage 6: Seamlessly cross-fade into the page-turn book reading experience (at ~3.0s)
     setTimeout(() => {
+      setStoryReadingSeconds(0);
+      try {
+        localStorage.setItem('ekta_story_reading_seconds', '0');
+      } catch {}
       setPhase('revealed');
       setIsAnimating(false);
       onOpen();
@@ -79,11 +115,15 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
           letterCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 100);
-    }, 3700);
+    }, 2980);
   };
 
   const handleResetToSealed = () => {
     if (isAnimating) return;
+    setStoryReadingSeconds(0);
+    try {
+      localStorage.setItem('ekta_story_reading_seconds', '0');
+    } catch {}
     setPhase('closed');
     romanticAudio.pause();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -93,10 +133,27 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
     paperFlipAudio.toggleMute();
   };
 
+  const handleCompleteStory = () => {
+    if (storyReadingSeconds >= 5) {
+      try {
+        fetch('/api/reading-time/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            section: 'Chapter 1: A Story Written for Ekta (10-Year Confession)',
+            seconds: storyReadingSeconds,
+            formattedDuration: formatReadingTime(storyReadingSeconds),
+          }),
+        }).catch(() => {});
+      } catch {}
+    }
+    onLetterRevealed();
+  };
+
   return (
     <section
       id="envelope-section"
-      className="min-h-[calc(100vh-72px)] flex flex-col items-center justify-between px-4 sm:px-6 pt-7 sm:pt-10 md:pt-12 pb-10 sm:pb-14 relative overflow-hidden paper-pattern will-change-transform"
+      className="min-h-screen flex flex-col items-center justify-between px-4 sm:px-6 pt-10 sm:pt-14 md:pt-16 pb-12 sm:pb-16 relative overflow-hidden paper-pattern will-change-transform"
       style={{ willChange: 'transform', transform: 'translateZ(0)' }}
       aria-label="A Story for Ekta"
     >
@@ -159,7 +216,7 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
           </div>
 
           {/* Staged 3D Physical Envelope with Breaking Wax Seal */}
-          <div className="w-full my-auto py-2 relative z-20 flex items-center justify-center">
+          <div className="w-full my-auto pt-14 sm:pt-20 md:pt-24 pb-4 relative z-20 flex items-center justify-center">
             <EnvelopeIllustration
               phase={phase}
               onSealClick={runOpeningSequence}
@@ -187,15 +244,21 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
         /* STATE B: Unfolded Letter & Authentic Physical 3D Page-Turn Experience */
         <div id="story-book-section" className="w-full flex-1 flex flex-col items-center animate-[letterUnfoldSmooth_0.8s_cubic-bezier(0.16,1,0.3,1)]">
           {/* Top Banner Ribbon */}
-          <div className="w-full max-w-3xl flex items-center justify-between mb-4 px-2">
-            <span className="font-handwriting text-2xl text-[#A64D68] inline-flex items-center gap-1.5">
-              <Feather className="w-4 h-4 text-[#A64D68]" />
-              A Story Written for Ekta ♡
-            </span>
+          <div className="w-full max-w-3xl flex flex-wrap items-center justify-between gap-2.5 mb-4 px-2">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="font-handwriting text-2xl text-[#A64D68] inline-flex items-center gap-1.5">
+                <Feather className="w-4 h-4 text-[#A64D68]" />
+                A Story Written for Ekta ♡
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-serif text-[#8E5265] bg-[#FFF5F8]/90 border border-[#F8DCE5] shadow-2xs">
+                <Clock className="w-3 h-3 text-[#A64D68]" />
+                <span>Reading time: {formatReadingTime(storyReadingSeconds)} ♡</span>
+              </span>
+            </div>
 
             <button
               onClick={handleResetToSealed}
-              className="inline-flex items-center gap-1.5 text-xs text-[#9A817B] hover:text-[#A64D68] transition-colors py-1 px-2 rounded-md hover:bg-[#F8DCE5]/30 cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs text-[#9A817B] hover:text-[#A64D68] transition-colors py-1 px-2.5 rounded-full bg-[#FFF5F8]/70 hover:bg-[#F8DCE5]/50 border border-[#F8DCE5] cursor-pointer"
               title="Close back to sealed envelope"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -210,7 +273,7 @@ export const OpeningEnvelope: React.FC<OpeningEnvelopeProps> = ({
             sectionTitle="Chapter"
             badgeLabel="10-Year Confession"
             completeButtonText="Continue to My Letter & Notes ♡"
-            onComplete={onLetterRevealed}
+            onComplete={handleCompleteStory}
             onReturnHome={handleResetToSealed}
           />
         </div>

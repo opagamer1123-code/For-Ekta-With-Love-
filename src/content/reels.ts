@@ -104,4 +104,13 @@ export const reelsData: ReelItem[] = [
     category: "Promises",
     size: "tall",
   },
+  {
+    id: 11,
+    title: "Dil Ko Sukoon Ka Ehsaas",
+    caption: "“Agar woh mil gayi na, toh shayad pehli baar dil ko sukoon ka ehsaas hoga... Har pal usi ke saath jeene ka dil karega ♡”",
+    videoUrl: "/assets/aistudio/SaveClip.App_AQOfxbQYnCKUfdCjxiOcYDW-DqgNRA6NCnI7uvh8PULzV7T8y5hd_-bA0TXKCFiWPjDHm_UYLIcQau5kMIAsI3xL3fa8eHobMnjXA8o_a451fcf9.mp4",
+    thumbnailUrl: "/assets/aistudio/reel_11_poster.jpg",
+    category: "Promises",
+    size: "tall",
+  },
 ];

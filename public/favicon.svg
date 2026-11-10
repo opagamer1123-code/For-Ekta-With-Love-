@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="pinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff7597" />
+      <stop offset="60%" stop-color="#f43f5e" />
+      <stop offset="100%" stop-color="#e11d48" />
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#e11d48" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <path d="M50 86 C25 65 10 48 10 32 C10 17 22 7 37 7 C44.5 7 50 12 50 12 C50 12 55.5 7 63 7 C78 7 90 17 90 32 C90 48 75 65 50 86 Z" fill="url(#pinkGrad)" filter="url(#softGlow)"/>
+  <ellipse cx="32" cy="22" rx="7" ry="4" transform="rotate(-35 32 22)" fill="#ffffff" opacity="0.55" />
+</svg>
